@@ -1,0 +1,44 @@
+# ============================================================
+# STAGING CONFIGURATION
+# ============================================================
+
+environment = "staging"
+config_path = "config/staging.toml"
+log_level = "info"
+log_format = "pretty"
+
+# Performance (slightly relaxed for staging)
+latency_budget_ns = 2_000_000       # 2ms
+max_concurrent_tasks = 4
+thread_pool_size = 8
+numa_node = null
+cpu_affinity = null
+use_huge_pages = false
+
+# Risk limits (reduced for staging)
+max_position_lots = 10.0
+max_daily_loss = 1000.0
+max_drawdown = 0.10
+var_confidence = 0.95
+risk_threshold = 0.8
+
+# Trading parameters (dry run in staging)
+stealth_enabled = true
+dry_run = true
+backtest_mode = false
+
+# Network
+market_data_ports = [11000, 11001]
+order_entry_ports = [21000, 21001]
+interface_name = "eth0"
+
+# Monitoring (enabled for staging)
+metrics_port = 9091
+enable_profiling = true
+alert_cooldown_ms = 10000
+prometheus_enabled = true
+
+# ML configuration (CPU only in staging)
+[ml]
+use_gpu = false
+batch_size = 16
