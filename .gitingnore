@@ -1,0 +1,55 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+*.exp
+*.ilk
+*.lib
+
+# Build artifacts
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.rlib
+*.d
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Dependencies
+Cargo.lock
+
+# Config (sensitive)
+config/production.toml
+config/credentials/
+*.key
+*.pem
+*.crt
+
+# Data
+data/
+logs/
+*.bin
+*.h5
+*.parquet
+
+# System
+*.pid
+*.socket
+*.core
+.docker/
+
+# Monitoring
+prometheus/
+grafana/
+*.db
+
+# JAX bridge
+src/jax/generated/
+jax_bridge.o
