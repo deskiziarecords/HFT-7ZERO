@@ -1,0 +1,51 @@
+# ============================================================
+# E-MINI S&P 500 FUTURES (ES)
+# ============================================================
+
+symbol: "ES"
+exchange: "CME"
+instrument_id: 1
+tick_size: 0.25
+lot_size: 1.0
+min_volume: 0.01
+max_volume: 0.05
+contract_multiplier: 50.0
+currency: "USD"
+margin_requirement: 0.05
+is_active: true
+
+trading_hours:
+  open_utc: 0
+  close_utc: 86400
+  sunday_open: 0
+  friday_close: 86400
+  holidays: []
+  sessions:
+    - name: "RTH"
+      open: "08:30"
+      close: "15:15"
+    - name: "ETH"
+      open: "15:30"
+      close: "08:30"
+
+risk_limits:
+  max_position_lots: 500
+  max_daily_loss: 50000
+  max_order_size: 50
+  min_order_size: 1
+  position_limit: 5000
+  var_multiplier: 1.0
+
+execution_params:
+  default_venue: "CME"
+  backup_venues: ["ICE", "CBOE"]
+  stealth_level: 0.8
+  max_participation_rate: 0.02
+  min_iceberg_size: 0.1
+  latency_tolerance_ns: 1000000
+
+market_data:
+  feed_type: "MDP"
+  multicast_group: "239.1.1.1"
+  port: 10000
+  depth_levels: 10
