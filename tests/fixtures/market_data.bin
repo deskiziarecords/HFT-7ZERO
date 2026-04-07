@@ -1,0 +1,38 @@
+// ============================================================
+// MARKET DATA BINARY FORMAT
+// ============================================================
+// Flat buffer format for zero-copy playback
+// Header + Sequence of tick records
+// ============================================================
+
+// File Header (64 bytes)
+#[repr(C, align(64))]
+pub struct MarketDataHeader {
+    pub magic: [u8; 8],           // "HFTCAP01"
+    pub version: u32,              // Format version
+    pub instrument_count: u32,     // Number of instruments
+    pub tick_count: u64,           // Total number of ticks
+    pub start_timestamp_ns: u64,   // First tick timestamp
+    pub end_timestamp_ns: u64,     // Last tick timestamp
+    pub sample_rate_hz: u32,       // Recording sample rate
+    pub flags: u32,                // Flags (compressed, encrypted, etc.)
+    pub reserved: [u8; 24],        // Reserved for future use
+}
+
+// Tick Record (64 bytes - cache aligned)
+#[repr(C, align(64))]
+pub struct TickRecord {
+    pub price: f64,                // Price (8 bytes)
+    pub volume: f64,               // Volume (8 bytes)
+    pub timestamp_ns: u64,         // Nanosecond timestamp (8 bytes)
+    pub exchange_id: u8,           // Exchange identifier (1 byte)
+    pub side: u8,                  // 0=buy, 1=sell (1 byte)
+    pub tick_type: u8,             // 0=bid,1=ask,2=trade,3=snapshot (1 byte)
+    pub flags: u32,                // Additional flags (4 bytes)
+    pub sequence: u32,             // Sequence number (4 bytes)
+    pub instrument_id: u32,        // Instrument ID (4 bytes)
+    pub trade_id: u64,             // Trade ID (8 bytes)
+    pub bid_depth: f64,            // Current bid depth (8 bytes)
+    pub ask_depth: f64,            // Current ask depth (8 bytes)
+    pub reserved: [u8; 8],         // Reserved (8 bytes)
+}
