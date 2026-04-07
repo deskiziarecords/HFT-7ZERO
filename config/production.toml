@@ -1,0 +1,115 @@
+# ============================================================
+# PRODUCTION CONFIGURATION
+# ============================================================
+
+environment = "production"
+config_path = "config/production.toml"
+log_level = "warn"
+log_format = "json"
+
+# Performance (sub-millisecond targets)
+latency_budget_ns = 1_000_000      # 1ms
+max_concurrent_tasks = 8
+thread_pool_size = 16
+numa_node = 0
+cpu_affinity = [0, 1, 2, 3, 4, 5, 6, 7]
+use_huge_pages = true
+
+# Risk limits
+max_position_lots = 1000.0
+max_daily_loss = 100000.0
+max_drawdown = 0.05
+var_confidence = 0.99
+risk_threshold = 0.7
+
+# Trading parameters
+instruments = []
+default_venue = "CME"
+stealth_enabled = true
+dry_run = false
+backtest_mode = false
+
+# Network
+market_data_ports = [10000, 10001, 10002]
+order_entry_ports = [20000, 20001]
+multicast_groups = ["239.1.1.1", "239.1.1.2"]
+interface_name = "eth0"
+receive_buffer_size_mb = 8
+
+# Monitoring
+metrics_port = 9090
+enable_profiling = false
+alert_cooldown_ms = 5000
+prometheus_enabled = true
+
+# Security (use environment variables for secrets)
+tls_enabled = true
+cert_path = "/etc/ssl/hft/cert.pem"
+key_path = "/etc/ssl/hft/key.pem"
+api_key_encrypted = "${HFT_API_KEY}"
+
+# Instrument-specific paths
+[instruments_config]
+config_dir = "config/instruments"
+reload_interval_sec = 3600
+
+# Risk gate thresholds
+[risk_gate]
+tau_max_ms = 500
+delta_threshold = 0.3
+gamma_threshold = 0.2
+phi_threshold = 0.6
+body_ratio_threshold = 0.7
+kl_epsilon = 0.01
+mandra_energy_threshold = 2.0
+harmonic_phase_threshold = 1.57079632679
+
+# Causality parameters
+[causality]
+max_lag = 10
+significance_level = 0.05
+bootstrap_iterations = 1000
+min_sample_size = 100
+transfer_entropy_bins = 6
+decay_rate = 0.08
+
+# Stealth execution
+[stealth]
+detection_threshold = 0.001
+max_participation_rate = 0.02
+min_iceberg_size = 0.1
+random_cancel_rate = 0.05
+volume_shaping = true
+time_randomization = true
+jitter_min_us = 50
+jitter_max_us = 500
+min_fragment_size = 0.001
+max_fragment_size = 0.01
+num_fragments_min = 3
+num_fragments_max = 8
+
+# Alert channels
+[alerts]
+email_enabled = false
+slack_enabled = true
+slack_webhook_url = "${SLACK_WEBHOOK_URL}"
+pagerduty_enabled = true
+pagerduty_integration_key = "${PAGERDUTY_KEY}"
+
+# ML configuration
+[ml]
+model_path = "/opt/hft-models/production.xla"
+batch_size = 32
+max_batch_delay_ns = 100_000
+feature_window_size = 256
+inference_timeout_ms = 1
+use_gpu = true
+gpu_device_id = 0
+
+# Python components (UV managed)
+[python]
+enabled = true
+venv_path = ".venv"
+scripts_path = "python"
+dashboard_port = 8080
+health_check_port = 8081
