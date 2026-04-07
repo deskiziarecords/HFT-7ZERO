@@ -1,0 +1,50 @@
+# ============================================================
+# CRUDE OIL FUTURES (CL)
+# ============================================================
+
+symbol: "CL"
+exchange: "NYMEX"
+instrument_id: 2
+tick_size: 0.01
+lot_size: 1.0
+min_volume: 0.01
+max_volume: 0.05
+contract_multiplier: 1000.0
+currency: "USD"
+margin_requirement: 0.08
+is_active: true
+
+trading_hours:
+  open_utc: 0
+  close_utc: 86400
+  sunday_open: 0
+  friday_close: 86400
+  sessions:
+    - name: "RTH"
+      open: "09:00"
+      close: "14:30"
+    - name: "ETH"
+      open: "18:00"
+      close: "09:00"
+
+risk_limits:
+  max_position_lots: 300
+  max_daily_loss: 30000
+  max_order_size: 30
+  min_order_size: 1
+  position_limit: 3000
+  var_multiplier: 1.2
+
+execution_params:
+  default_venue: "NYMEX"
+  backup_venues: ["ICE"]
+  stealth_level: 0.7
+  max_participation_rate: 0.015
+  min_iceberg_size: 0.05
+  latency_tolerance_ns: 2000000
+
+market_data:
+  feed_type: "MDP"
+  multicast_group: "239.1.1.2"
+  port: 10001
+  depth_levels: 10
