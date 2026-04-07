@@ -1,0 +1,165 @@
+# ============================================================
+# PROMETHEUS CONFIGURATION - HFT STEALTH SYSTEM
+# ============================================================
+
+global:
+  scrape_interval: 1s           # High-frequency scraping for HFT
+  evaluation_interval: 1s
+  scrape_timeout: 500ms          # Fast timeout for low latency
+  
+  external_labels:
+    environment: production
+    system: hft-stealth
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - localhost:9093
+      timeout: 5s
+      api_version: v2
+
+# Rule files
+rule_files:
+  - "alerts.yml"
+  - "recording_rules.yml"
+
+# Scrape configurations
+scrape_configs:
+  # HFT System metrics
+  - job_name: 'hft-stealth'
+    scrape_interval: 100ms      # 100ms scrape for real-time metrics
+    scrape_timeout: 50ms
+    metrics_path: '/metrics'
+    scheme: 'http'
+    
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          instance: 'prod-01'
+          service: 'trading-engine'
+    
+    # Fast relabeling
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+).*'
+        replacement: '${1}'
+    
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'hft_.*'
+        action: keep
+
+  # System metrics (node exporter)
+  - job_name: 'node'
+    scrape_interval: 1s
+    static_configs:
+      - targets: ['localhost:9100']
+        labels:
+          role: 'hft-node'
+  
+  # Network metrics
+  - job_name: 'network'
+    scrape_interval: 1s
+    static_configs:
+      - targets: ['localhost:9115']  # blackbox exporter
+        labels:
+          interface: 'eth0'
+  
+  # Python helpers metrics
+  - job_name: 'python-helpers'
+    scrape_interval: 500ms
+    static_configs:
+      - targets: ['localhost:8081']
+        labels:
+          component: 'dashboard'
+
+# Recording rules
+# These pre-compute frequently used metrics for faster queries
+recording_rules:
+  groups:
+    - name: hft_latency
+      interval: 1s
+      rules:
+        - record: hft:latency_p99:rate5m
+          expr: rate(hft_latency_p99_ns[5m])
+        
+        - record: hft:detection_risk:avg
+          expr: avg_over_time(hft_detection_probability[1m])
+        
+        - record: hft:throughput:rate1m
+          expr: rate(hft_ticks_processed_total[1m])
+        
+        - record: hft:stealth_score
+          expr: (1 - hft_detection_probability) * 100
+
+# Alert rules
+alerting_rules:
+  groups:
+    - name: hft_alerts
+      interval: 1s
+      rules:
+        - alert: HighLatency
+          expr: hft_latency_p99_ns > 1000000
+          for: 1s
+          labels:
+            severity: critical
+            component: pipeline
+          annotations:
+            summary: "High pipeline latency"
+            description: "P99 latency is {{ $value }}ns (threshold: 1ms)"
+        
+        - alert: DetectionRisk
+          expr: hft_detection_probability > 0.001
+          for: 5s
+          labels:
+            severity: warning
+            component: stealth
+          annotations:
+            summary: "Elevated detection risk"
+            description: "Detection probability is {{ $value | humanizePercentage }}"
+        
+        - alert: LowThroughput
+          expr: rate(hft_ticks_processed_total[1s]) < 10000
+          for: 5s
+          labels:
+            severity: warning
+            component: market-data
+          annotations:
+            summary: "Low tick throughput"
+            description: "Processing {{ $value }} ticks/sec"
+        
+        - alert: HighDrawdown
+          expr: hft_current_drawdown > 0.05
+          for: 1s
+          labels:
+            severity: critical
+            component: risk
+          annotations:
+            summary: "High drawdown"
+            description: "Drawdown is {{ $value | humanizePercentage }}"
+        
+        - alert: GateTriggered
+          expr: hft_risk_gate_triggered_total > 0
+          for: 0s
+          labels:
+            severity: critical
+            component: risk
+          annotations:
+            summary: "Risk gate triggered"
+            description: "Risk gate has been triggered"
+
+# Remote write (optional, for long-term storage)
+remote_write:
+  - url: "http://victoria-metrics:8428/api/v1/write"
+    queue_config:
+      capacity: 10000
+      max_shards: 200
+      min_shards: 10
+      max_samples_per_send: 5000
+    write_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'hft_.*'
+        action: keep
