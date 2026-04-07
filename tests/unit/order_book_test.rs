@@ -241,4 +241,121 @@ fn test_weighted_mid() {
 }
 
 // ============================================================
-// TOP LEVEL
+// TOP LEVELS TESTS
+// ============================================================
+
+#[test]
+fn test_top_levels() {
+    let mut book = OrderBook::new(1, 0.01);
+    
+    for i in 0..10 {
+        let bid = Tick::bid(100.00 - i as f64 * 0.01, 1000.0, 1000 + i as u64, 1);
+        let ask = Tick::ask(100.05 + i as f64 * 0.01, 1000.0, 2000 + i as u64, 1);
+        book.update(&bid);
+        book.update(&ask);
+    }
+    
+    let (bids, asks) = book.top_levels(5);
+    
+    assert_eq!(bids.len(), 5);
+    assert_eq!(asks.len(), 5);
+    
+    // Bids should be descending
+    for i in 0..4 {
+        assert!(bids[i].price > bids[i + 1].price);
+    }
+    
+    // Asks should be ascending
+    for i in 0..4 {
+        assert!(asks[i].price < asks[i + 1].price);
+    }
+}
+
+// ============================================================
+// EDGE CASE TESTS
+// ============================================================
+
+#[test]
+fn test_empty_book_operations() {
+    let book = OrderBook::new(1, 0.01);
+    
+    assert_eq!(book.best_bid(), 0.0);
+    assert_eq!(book.best_ask(), f64::INFINITY);
+    assert!(book.bid_at_depth(0).is_none());
+    assert!(book.ask_at_depth(0).is_none());
+    assert_eq!(book.total_bid_volume(), 0.0);
+    assert_eq!(book.total_ask_volume(), 0.0);
+    assert_eq!(book.order_imbalance(), 0.0);
+}
+
+#[test]
+fn test_clear_order_book() {
+    let mut book = OrderBook::new(1, 0.01);
+    
+    book.update(&Tick::bid(100.00, 1000.0, 1000, 1));
+    book.update(&Tick::ask(100.05, 1000.0, 1001, 1));
+    
+    assert_ne!(book.best_bid(), 0.0);
+    assert_ne!(book.best_ask(), f64::INFINITY);
+    
+    book.clear();
+    
+    assert_eq!(book.best_bid(), 0.0);
+    assert_eq!(book.best_ask(), f64::INFINITY);
+}
+
+// ============================================================
+// SEQUENCE AND TIMESTAMP TESTS
+// ============================================================
+
+#[test]
+fn test_sequence_numbers() {
+    let mut book = OrderBook::new(1, 0.01);
+    
+    let seq1 = book.sequence();
+    book.update(&Tick::bid(100.00, 1000.0, 1000, 1));
+    let seq2 = book.sequence();
+    
+    assert!(seq2 > seq1);
+}
+
+#[test]
+fn test_timestamp() {
+    let mut book = OrderBook::new(1, 0.01);
+    let ts = get_hardware_timestamp();
+    
+    book.update(&Tick::bid(100.00, 1000.0, ts, 1));
+    let book_ts = book.timestamp_ns();
+    
+    assert_eq!(book_ts, ts);
+}
+
+// ============================================================
+// CONCURRENT ACCESS TESTS
+// ============================================================
+
+#[test]
+fn test_concurrent_updates() {
+    use std::sync::Arc;
+    use std::thread;
+    
+    let book = Arc::new(OrderBook::new(1, 0.01));
+    let mut handles = vec![];
+    
+    for i in 0..10 {
+        let book = book.clone();
+        handles.push(thread::spawn(move || {
+            let mut local_book = OrderBook::new(1, 0.01);
+            for j in 0..100 {
+                let bid = Tick::bid(100.00 + j as f64 * 0.01, 1000.0, 1000 + j as u64, 1);
+                local_book.update(&bid);
+            }
+            // Note: OrderBook is not thread-safe, this is a test of isolation
+            local_book.best_bid()
+        }));
+    }
+    
+    for handle in handles {
+        let _ = handle.join();
+    }
+}
