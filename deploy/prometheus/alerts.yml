@@ -1,0 +1,55 @@
+# ============================================================
+# PROMETHEUS ALERT RULES
+# ============================================================
+
+groups:
+  - name: hft_critical
+    interval: 1s
+    rules:
+      - alert: LatencyBudgetExceeded
+        expr: |
+          hft_latency_p99_ns > 1000000
+          and
+          hft_latency_p99_ns > (hft_latency_p99_ns offset 1s) * 2
+        for: 0s
+        labels:
+          severity: emergency
+          pager: true
+        annotations:
+          summary: "Latency budget exceeded with spike"
+          description: "P99 latency: {{ $value }}ns"
+          
+      - alert: HarmonicTrapDetected
+        expr: hft_harmonic_trap_detected > 0
+        for: 0s
+        labels:
+          severity: critical
+          action: halt-trading
+        annotations:
+          summary: "Harmonic trap detected"
+          description: "Phase inversion > π/2 detected in price signals"
+
+  - name: hft_warning
+    interval: 1s
+    rules:
+      - alert: StealthCompromised
+        expr: |
+          hft_detection_probability > 0.005
+          and
+          hft_detection_probability > (hft_detection_probability offset 10s) * 2
+        for: 5s
+        labels:
+          severity: warning
+          slack: true
+        annotations:
+          summary: "Stealth may be compromised"
+          description: "Detection probability increased to {{ $value | humanizePercentage }}"
+
+      - alert: LowLiquidity
+        expr: hft_order_book_depth < 10000
+        for: 10s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low market liquidity"
+          description: "Order book depth: {{ $value }}"
