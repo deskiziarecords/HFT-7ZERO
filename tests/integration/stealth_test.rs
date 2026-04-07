@@ -266,4 +266,89 @@ fn test_volume_constraints() {
     // Test invalid volumes
     let invalid_volumes = [0.005, 0.009, 0.051, 0.1, 0.5];
     for &volume in &invalid_volumes {
-        assert!(!executor.g
+        assert!(!executor.gate_check(volume, 1.0, &book), 
+                "Volume {} should be invalid", volume);
+    }
+}
+
+// ============================================================
+// SLIPPAGE CONSTRAINTS TEST (Δp_slip ≤ [0.5, 1.5] pips)
+// ============================================================
+
+#[test]
+fn test_slippage_constraints() {
+    let config = StealthConfig::default();
+    let executor = StealthExecutor::new(config);
+    let book = generate_test_order_book();
+    
+    // Test valid slippage
+    let valid_slippage = [0.5, 0.75, 1.0, 1.25, 1.5];
+    for &slippage in &valid_slippage {
+        assert!(executor.gate_check(0.025, slippage, &book), 
+                "Slippage {} should be valid", slippage);
+    }
+    
+    // Test invalid slippage
+    let invalid_slippage = [0.1, 0.4, 1.6, 2.0, 5.0];
+    for &slippage in &invalid_slippage {
+        assert!(!executor.gate_check(0.025, slippage, &book), 
+                "Slippage {} should be invalid", slippage);
+    }
+}
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
+
+fn generate_test_order_book() -> OrderBook {
+    let mut book = OrderBook::new(1, 0.01);
+    
+    for i in 0..10 {
+        let bid = Tick::bid(100.00 - i as f64 * 0.01, 1000.0 * (10 - i) as f64, get_hardware_timestamp(), 1);
+        let ask = Tick::ask(100.05 + i as f64 * 0.01, 1000.0 * (10 - i) as f64, get_hardware_timestamp(), 1);
+        book.update(&bid);
+        book.update(&ask);
+    }
+    
+    book
+}
+
+// ============================================================
+// COMPREHENSIVE STEALTH TEST
+// ============================================================
+
+#[test]
+fn test_comprehensive_stealth() {
+    let config = StealthConfig::default();
+    let mut executor = StealthExecutor::new(config);
+    let book = generate_test_order_book();
+    
+    let mut rng = rand::thread_rng();
+    let mut order = Order::buy(1, 0.025, 100.00);
+    order.expected_slippage = 1.0;
+    
+    let mut results = HashMap::new();
+    
+    // Execute orders with various parameters
+    for _ in 0..500 {
+        let volume = rng.gen_range(0.01..0.05);
+        let slippage = rng.gen_range(0.5..1.5);
+        
+        let mut order_clone = order.clone();
+        order_clone.volume = volume;
+        order_clone.expected_slippage = slippage;
+        
+        let result = executor.execute(&mut order_clone, &book);
+        *results.entry(result.is_success()).or_insert(0) += 1;
+    }
+    
+    let success_rate = *results.get(&true).unwrap_or(&0) as f64 / 500.0;
+    println!("Stealth execution success rate: {:.1}%", success_rate * 100.0);
+    
+    // Should have high success rate for valid parameters
+    assert!(success_rate > 0.95, "Success rate too low: {}", success_rate);
+    
+    let stats = executor.stats();
+    println!("Final detection risk: {:?}", stats.detection_risk);
+    assert!(stats.detection_risk <= DetectionRisk::Low, "Detection risk too high");
+}
