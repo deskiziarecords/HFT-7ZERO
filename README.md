@@ -574,7 +574,88 @@ Multi-method fusion with:
 
     Stealth Metrics: Multi-factor detection risk
 ---
+### fixtures:
 
+    market_data.bin: Binary format specification for market data playback
+
+    config.yaml: Complete production configuration with all parameters
+
+
+### Scripts
+
+    run_prod.sh: Production run script with:
+
+        Process management (start/stop/restart/status)
+
+        CPU affinity and NUMA binding
+
+        Huge pages configuration
+
+        Log rotation setup
+
+        Systemd service integration
+
+        Health monitoring
+
+### benchmark.sh: 
+
+Comprehensive benchmarking with:
+
+- Latency, throughput, and risk benchmarks
+- Scalability testing with varying thread counts
+- Stress testing with monitoring
+- Report generation with markdown
+- Baseline comparison with critcmp
+
+### deploy.sh: 
+
+Production deployment with:
+
+- Blue-green deployment strategy
+- Rolling deployment for multi-instance
+- Canary deployment with traffic splitting
+- Automatic rollback on failure
+- Health check verification
+- Version tracking
+
+### monitoring_dashboard.py: 
+
+ Real-time web dashboard with:
+
+- WebSocket-based real-time updates
+- Plotly charts for latency, throughput, risk
+- Metric cards with trend indicators
+- Health status monitoring
+- Detection risk tracking (ℙ ≈ 0 target)
+
+---
+
+### Usage Examples:
+
+```    
+bash
+
+# Generate market data
+python3 fixtures/generate_market_data.py
+
+# Run production system
+./scripts/run_prod.sh start
+
+# Run all benchmarks
+./scripts/benchmark.sh all
+
+# Deploy to production
+DEPLOY_HOST=prod-server-01 ./scripts/deploy.sh deploy
+
+# Start monitoring dashboard
+python3 scripts/monitoring_dashboard.py --port 8080
+
+# Check system status
+./scripts/run_prod.sh status
+
+# View logs
+./scripts/run_prod.sh logs
+```
 
 ```bash
 # Build production binary
