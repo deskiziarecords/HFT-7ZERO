@@ -1,0 +1,71 @@
+[Unit]
+Description=HFT Stealth System - Production High-Frequency Trading Engine
+Documentation=https://github.com/hft-stealth/system/docs
+After=network.target network-online.target time-sync.target
+Wants=network-online.target time-sync.target
+
+[Service]
+Type=simple
+User=hft
+Group=hft
+WorkingDirectory=/opt/hft-stealth
+
+# Environment
+Environment="HFT_ENVIRONMENT=production"
+Environment="RUST_LOG=warn,hft_stealth_system=info"
+Environment="RUST_BACKTRACE=1"
+
+# Startup
+ExecStartPre=/opt/hft-stealth/scripts/prestart.sh
+ExecStart=/opt/hft-stealth/scripts/run_prod.sh start
+ExecStop=/opt/hft-stealth/scripts/run_prod.sh stop
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=30
+TimeoutStopSec=30
+
+# Process limits (critical for HFT)
+LimitNOFILE=1000000
+LimitMEMLOCK=infinity
+LimitCORE=infinity
+LimitRTPRIO=99
+LimitRTTIME=1000000
+
+# Scheduling (real-time priority)
+CPUSchedulingPolicy=fifo
+CPUSchedulingPriority=99
+Nice=-20
+IOSchedulingClass=realtime
+IOSchedulingPriority=0
+
+# CPU affinity (adjust based on your CPU topology)
+# Uses cores 0-7 for HFT, isolates others for OS
+CPUAffinity=0-7
+
+# Memory management
+MemoryMax=32G
+MemoryHigh=28G
+
+# Security hardening
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/log/hft-stealth /var/lib/hft-stealth /opt/hft-stealth/config
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictRealtime=no  # Required for real-time scheduling
+RestrictNamespaces=yes
+
+# Network
+BindReadOnlyPaths=/etc/ssl/certs
+NetworkNamespacePath=
+
+# Monitoring
+WatchdogSec=10
+
+[Install]
+WantedBy=multi-user.target
