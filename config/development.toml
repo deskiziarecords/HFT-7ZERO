@@ -1,0 +1,51 @@
+# ============================================================
+# DEVELOPMENT CONFIGURATION
+# ============================================================
+
+environment = "development"
+config_path = "config/development.toml"
+log_level = "debug"
+log_format = "pretty"
+
+# Performance (relaxed for development)
+latency_budget_ns = 10_000_000       # 10ms
+max_concurrent_tasks = 2
+thread_pool_size = 4
+numa_node = null
+cpu_affinity = null
+use_huge_pages = false
+
+# Risk limits (very relaxed)
+max_position_lots = 100.0
+max_daily_loss = 10000.0
+max_drawdown = 0.20
+var_confidence = 0.90
+risk_threshold = 0.9
+
+# Trading parameters (dry run)
+stealth_enabled = false
+dry_run = true
+backtest_mode = true
+backtest_data_file = "tests/fixtures/market_data.bin"
+
+# Network (loopback for development)
+market_data_ports = [12000]
+order_entry_ports = [22000]
+interface_name = "lo"
+
+# Monitoring
+metrics_port = 9092
+enable_profiling = true
+alert_cooldown_ms = 30000
+prometheus_enabled = false
+
+# ML configuration
+[ml]
+use_gpu = false
+batch_size = 8
+model_path = "models/dev.xla"
+
+# Python components (enabled for dev tools)
+[python]
+enabled = true
+dashboard_port = 8080
