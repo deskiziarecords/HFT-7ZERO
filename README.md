@@ -394,7 +394,7 @@ Multi-method fusion with:
 
         Memory and I/O constants
 
-###m Instruments Module:
+### Instruments Module:
 
         Complete instrument definitions with exchange-specific parameters
 
@@ -482,7 +482,65 @@ Multi-method fusion with:
 
     SIMD-optimized vector operations
 
-    
+---
+## Benchmarks
+
+### Latency Benchmarks (latency_bench.rs)
+
+    Order Book Updates: Single and batch update latencies
+
+    Risk Gate: All 6 lambda triggers, individual and combined
+
+    Harmonic Detector: Phase inversion detection with/without classification
+
+    ML Inference: Feature extraction and batch inference
+
+    Full Pipeline: End-to-end tick→signal latency
+
+    Execution Pipeline: Gate check, stealth execution, fragmentation
+
+    Latency Distribution: P50, P95, P99, P999 percentiles
+
+    Component Comparison: Relative performance across modules
+
+    Stress Tests: High-throughput concurrent processing
+
+
+### Throughput Benchmarks (throughput_bench.rs)
+
+    Packet Processing: Single and batch packet handling
+
+    Order Book: Update throughput and query rates
+
+    Risk Engine: Risk calculation throughput
+
+    Signal Processing: Harmonic detection throughput
+
+    Execution: Order execution and fragmentation rates
+
+    Concurrent Processing: Parallel risk computation scaling
+
+    Memory Operations: Zero-copy buffer throughput
+
+
+### Risk Computation Benchmarks (risk_compute_bench.rs)
+
+    VaR Methods: Historical, Parametric, Monte Carlo comparison
+
+    Risk Gate: Individual lambda performance profiling
+
+    Stress Testing: Scenario execution throughput
+
+    PnL Calculation: Real-time profit/loss tracking
+
+    Real-time Monitoring: Continuous risk metric updates
+
+    Method Comparison: Accuracy vs. speed trade-offs
+
+    Metrics Aggregation: Portfolio-level risk aggregation
+---
+
+
 ```bash
 # Build production binary
 cargo build --profile production --features production
