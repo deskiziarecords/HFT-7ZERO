@@ -540,6 +540,41 @@ Multi-method fusion with:
     Metrics Aggregation: Portfolio-level risk aggregation
 ---
 
+### Integration Tests (tests/integration/)
+
+    System Test: End-to-end pipeline validation, latency measurement, throughput testing
+
+    Risk Gate Test: All 6 lambda triggers, boundary conditions, stress testing
+
+    Stealth Test: Detection probability validation, fragmentation strategies, jitter distribution
+
+### Unit Tests (tests/unit/)
+
+    Harmonic Test: Phase inversion detection, trap classification, real signal simulation
+
+    Causality Test: Granger causality, transfer entropy, CCM, Spearman correlation
+
+    Order Book Test: Basic operations, depth management, edge cases, concurrency
+
+### Test Coverage Includes:
+
+    Latency Validation: P99 < 1ms, P95 < 800μs
+
+    Volume Constraints: V ∈ [0.01, 0.05]
+
+    Slippage Constraints: Δp ∈ [0.5, 1.5] pips
+
+    Jitter Distribution: 𝒰(50, 500) μs
+
+    Detection Probability: ℙ ≈ 0
+
+    Harmonic Trap: ∠ > π/2 detection
+
+    Risk Gate: All 6 triggers with thresholds
+
+    Stealth Metrics: Multi-factor detection risk
+---
+
 
 ```bash
 # Build production binary
