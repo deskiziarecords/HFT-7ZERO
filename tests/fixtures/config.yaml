@@ -1,0 +1,181 @@
+# ============================================================
+# HFT STEALTH SYSTEM CONFIGURATION
+# ============================================================
+
+# Environment settings
+environment: "production"  # development, staging, production
+
+# Logging configuration
+logging:
+  level: "info"  # trace, debug, info, warn, error
+  format: "json"  # pretty, json, compact
+  file_path: "/var/log/hft-stealth/system.log"
+  max_file_size_mb: 100
+  max_file_count: 10
+  async_logging: true
+
+# Performance tuning
+performance:
+  latency_budget_us: 1000  # 1ms budget
+  max_concurrent_tasks: 4
+  thread_pool_size: 8
+  numa_node: null
+  cpu_affinity: [0, 1, 2, 3]
+  use_huge_pages: true
+
+# Risk limits
+risk:
+  max_position_lots: 1000.0
+  max_daily_loss: 100000.0
+  max_drawdown: 0.05  # 5%
+  var_confidence: 0.99
+  var_horizon_seconds: 1
+  max_correlation: 0.7
+  auto_liquidation: true
+  stress_test_enabled: true
+
+# Trading parameters
+trading:
+  stealth_enabled: true
+  dry_run: false
+  backtest_mode: false
+  default_venue: "CME"
+  
+  # Volume constraints (V ∈ [0.01, 0.05])
+  min_volume_pct: 0.01
+  max_volume_pct: 0.05
+  
+  # Slippage constraints (Δp ∈ [0.5, 1.5] pips)
+  min_slippage_pips: 0.5
+  max_slippage_pips: 1.5
+  
+  # Time windows
+  london_window: ["08:00", "10:00"]  # UTC
+  ny_window: ["13:30", "15:30"]      # UTC
+
+# Instruments
+instruments:
+  - symbol: "ES"
+    exchange: "CME"
+    instrument_id: 1
+    tick_size: 0.25
+    lot_size: 1.0
+    min_volume: 0.01
+    max_volume: 0.05
+    contract_multiplier: 50.0
+    currency: "USD"
+    margin_requirement: 0.05
+    trading_hours:
+      open_utc: 0
+      close_utc: 86400
+      sunday_open: 0
+      friday_close: 86400
+    is_active: true
+    
+  - symbol: "CL"
+    exchange: "NYMEX"
+    instrument_id: 2
+    tick_size: 0.01
+    lot_size: 1.0
+    min_volume: 0.01
+    max_volume: 0.05
+    contract_multiplier: 1000.0
+    currency: "USD"
+    margin_requirement: 0.08
+    trading_hours:
+      open_utc: 0
+      close_utc: 86400
+      sunday_open: 0
+      friday_close: 86400
+    is_active: true
+
+# Network configuration
+network:
+  market_data_ports: [10000, 10001, 10002]
+  order_entry_ports: [20000, 20001]
+  multicast_groups: ["239.1.1.1", "239.1.1.2"]
+  interface_name: "eth0"
+  receive_buffer_size_mb: 8
+  io_uring_queue_depth: 4096
+
+# Monitoring
+monitoring:
+  metrics_port: 9090
+  enable_profiling: false
+  alert_cooldown_ms: 5000
+  prometheus_enabled: true
+  metrics_interval_ms: 100
+  latency_threshold_us: 1000
+
+# ML/AI configuration
+ml:
+  model_path: "/opt/hft-models/production.xla"
+  batch_size: 32
+  max_batch_delay_us: 100
+  feature_window_size: 256
+  inference_timeout_ms: 1
+  use_gpu: true
+  gpu_device_id: 0
+
+# Causality parameters
+causality:
+  max_lag: 10
+  significance_level: 0.05
+  bootstrap_iterations: 1000
+  min_sample_size: 100
+  transfer_entropy_bins: 6
+  decay_rate: 0.08  # e^{-0.08τ}
+
+# Stealth execution
+stealth:
+  detection_threshold: 0.001  # 0.1% detection target
+  max_participation_rate: 0.02
+  min_iceberg_size: 0.1
+  random_cancel_rate: 0.05
+  volume_shaping: true
+  time_randomization: true
+  
+  # Jitter range (Δt_jitter ~ 𝒰(50, 500) μs)
+  jitter_min_us: 50
+  jitter_max_us: 500
+  
+  # Fragmentation
+  min_fragment_size: 0.001
+  max_fragment_size: 0.01
+  num_fragments_min: 3
+  num_fragments_max: 8
+
+# Risk gate thresholds
+risk_gate:
+  tau_max_ms: 500
+  delta_threshold: 0.3
+  gamma_threshold: 0.2
+  phi_threshold: 0.6
+  body_ratio_threshold: 0.7
+  kl_epsilon: 0.01
+  mandra_energy_threshold: 2.0
+  harmonic_phase_threshold: 1.5708  # π/2
+
+# Alert channels
+alerts:
+  email:
+    enabled: false
+    smtp_server: "smtp.company.com"
+    smtp_port: 587
+    from_addr: "alerts@hft-stealth.com"
+    to_addrs: ["team@hft-stealth.com"]
+  
+  slack:
+    enabled: true
+    webhook_url: "https://hooks.slack.com/services/XXX/YYY/ZZZ"
+    channel: "#hft-alerts"
+  
+  pagerduty:
+    enabled: false
+    integration_key: "your-integration-key"
+  
+  webhook:
+    enabled: true
+    url: "http://localhost:8080/webhook"
+    headers:
+      Content-Type: "application/json"
