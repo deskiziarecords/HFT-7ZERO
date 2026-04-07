@@ -1,0 +1,50 @@
+# ============================================================
+# GOLD FUTURES (GC)
+# ============================================================
+
+symbol: "GC"
+exchange: "COMEX"
+instrument_id: 3
+tick_size: 0.10
+lot_size: 1.0
+min_volume: 0.01
+max_volume: 0.05
+contract_multiplier: 100.0
+currency: "USD"
+margin_requirement: 0.05
+is_active: true
+
+trading_hours:
+  open_utc: 0
+  close_utc: 86400
+  sunday_open: 0
+  friday_close: 86400
+  sessions:
+    - name: "RTH"
+      open: "08:20"
+      close: "13:30"
+    - name: "ETH"
+      open: "18:00"
+      close: "08:20"
+
+risk_limits:
+  max_position_lots: 200
+  max_daily_loss: 20000
+  max_order_size: 20
+  min_order_size: 1
+  position_limit: 2000
+  var_multiplier: 0.8
+
+execution_params:
+  default_venue: "COMEX"
+  backup_venues: ["ICE"]
+  stealth_level: 0.9
+  max_participation_rate: 0.01
+  min_iceberg_size: 0.05
+  latency_tolerance_ns: 1500000
+
+market_data:
+  feed_type: "MDP"
+  multicast_group: "239.1.1.3"
+  port: 10002
+  depth_levels: 10
