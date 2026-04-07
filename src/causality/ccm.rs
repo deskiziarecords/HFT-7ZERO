@@ -141,4 +141,116 @@ impl ConvergentCrossMapping {
             // Find nearest neighbors in X manifold
             let mut neighbors: Vec<(usize, f64)> = (0..n)
                 .filter(|&j| j != i)
-                .map(|j|
+                .map(|j| {
+                    let dist = self.euclidean_distance(target, &x_manifold[j]);
+                    (j, dist)
+                })
+                .collect();
+            
+            neighbors.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+            
+            // Weighted prediction using nearest neighbors
+            let total_weight: f64 = neighbors.iter()
+                .take(self.config.num_neighbors)
+                .map(|&(_, d)| 1.0 / (d + 1e-8))
+                .sum();
+            
+            let prediction: f64 = neighbors.iter()
+                .take(self.config.num_neighbors)
+                .map(|&(j, d)| y_manifold[j][0] / (d + 1e-8))
+                .sum::<f64>() / total_weight;
+            
+            predictions.push(prediction);
+            actuals.push(y_manifold[i][0]);
+        }
+        
+        // Compute Pearson correlation between predictions and actuals
+        self.pearson_correlation(&predictions, &actuals)
+    }
+    
+    /// Euclidean distance between two vectors
+    fn euclidean_distance(&self, a: &[f64], b: &[f64]) -> f64 {
+        a.iter().zip(b.iter())
+            .map(|(ai, bi)| (ai - bi).powi(2))
+            .sum::<f64>()
+            .sqrt()
+    }
+    
+    /// Pearson correlation coefficient
+    fn pearson_correlation(&self, x: &[f64], y: &[f64]) -> f64 {
+        let n = x.len().min(y.len());
+        if n < 2 {
+            return 0.0;
+        }
+        
+        let mean_x = x.iter().sum::<f64>() / n as f64;
+        let mean_y = y.iter().sum::<f64>() / n as f64;
+        
+        let mut cov = 0.0;
+        let mut var_x = 0.0;
+        let mut var_y = 0.0;
+        
+        for i in 0..n {
+            let dx = x[i] - mean_x;
+            let dy = y[i] - mean_y;
+            cov += dx * dy;
+            var_x += dx * dx;
+            var_y += dy * dy;
+        }
+        
+        cov / (var_x.sqrt() * var_y.sqrt() + 1e-8)
+    }
+    
+    /// Compute convergence slope using linear regression on log scale
+    fn compute_convergence_slope(&self, rho_values: &[f64]) -> f64 {
+        if rho_values.len() < 2 {
+            return 0.0;
+        }
+        
+        let x: Vec<f64> = (0..rho_values.len()).map(|i| (i + 1) as f64).collect();
+        let y: Vec<f64> = rho_values.iter().copied().collect();
+        
+        let n = x.len() as f64;
+        let sum_x: f64 = x.iter().sum();
+        let sum_y: f64 = y.iter().sum();
+        let sum_xy: f64 = x.iter().zip(y.iter()).map(|(xi, yi)| xi * yi).sum();
+        let sum_x2: f64 = x.iter().map(|xi| xi * xi).sum();
+        
+        let slope = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x * sum_x);
+        
+        slope.max(0.0)
+    }
+    
+    /// Test bidirectional causality
+    pub fn test_bidirectional(&mut self, y: &[f64], x: &[f64]) -> (bool, bool) {
+        let x_to_y = self.test(y, x);
+        let y_to_x = self.test(x, y);
+        
+        (x_to_y.is_causal, y_to_x.is_causal)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_ccm() {
+        let config = CCMConfig::default();
+        let mut ccm = ConvergentCrossMapping::new(config);
+        
+        // Generate data from coupled logistic maps
+        let n = 500;
+        let mut x = vec![0.5; n];
+        let mut y = vec![0.3; n];
+        
+        for i in 1..n {
+            x[i] = 3.8 * x[i-1] * (1.0 - x[i-1]);
+            y[i] = 3.8 * y[i-1] * (1.0 - y[i-1]) + 0.2 * x[i-1];
+        }
+        
+        let result = ccm.test(&y, &x);
+        println!("CCM rho: {:.4}, slope: {:.4}, causal: {}", 
+                 result.rho, result.convergence_slope, result.is_causal);
+    }
+}
