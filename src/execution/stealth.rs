@@ -1,17 +1,17 @@
 // ============================================================
-// JAX MODEL BRIDGE
+// STEALTH EXECUTOR
 // ============================================================
 
-pub struct JAXModel;
+pub struct StealthExecutor;
 
-impl JAXModel {
-    pub fn new() -> std::io::Result<Self> {
-        Ok(Self)
+impl StealthExecutor {
+    pub fn new() -> Self {
+        Self
     }
 }
 
-impl crate::Component for JAXModel {
-    fn name(&self) -> &'static str { "JAXModel" }
+impl crate::Component for StealthExecutor {
+    fn name(&self) -> &'static str { "StealthExecutor" }
     fn start(&self) -> Result<(), crate::SystemError> { Ok(()) }
     fn stop(&self) -> Result<(), crate::SystemError> { Ok(()) }
     fn health_check(&self) -> crate::HealthStatus { crate::HealthStatus::Healthy }
