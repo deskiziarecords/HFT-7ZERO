@@ -15,17 +15,16 @@ use tokio::signal;
 use tracing::{info, error, warn, debug};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
-use hft_stealth_system::{
+use hft_7zero::{
     HFTStealthSystem,
     SystemConfig,
     Component,
     HealthStatus,
-    monitoring::LatencyWatchdog,
     io::PacketCapture,
     ml::JAXModel,
-    risk::RiskEngine,
     execution::StealthExecutor,
 };
+use std::time::Duration;
 
 // ============================================================
 // COMMAND LINE INTERFACE
@@ -62,7 +61,7 @@ struct Cli {
     command: Option<Commands>,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Clone)]
 enum Commands {
     /// Run the trading system
     Run {
@@ -120,12 +119,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_logging(&cli).await?;
     
     // Handle subcommands
-    if let Some(cmd) = cli.command {
+    if let Some(cmd) = cli.command.clone() {
         return handle_command(cmd, &cli).await;
     }
     
     // Default: run system
-    run_system(cli).await
+    run_trading_system(&cli, false, false, None).await
 }
 
 // ============================================================
@@ -141,21 +140,14 @@ async fn init_logging(cli: &Cli) -> Result<(), Box<dyn std::error::Error>> {
         EnvFilter::new("hft_stealth_system=info,error")
     };
     
+    let subscriber = fmt::Subscriber::builder()
+        .with_env_filter(env_filter)
+        .with_thread_ids(true);
+
     if cli.json_logs {
-        fmt::format()
-            .json()
-            .flatten_event(true)
-            .with_env_filter(env_filter)
-            .with_target(false)
-            .with_thread_ids(true)
-            .init();
+        subscriber.json().init();
     } else {
-        fmt::format()
-            .pretty()
-            .with_env_filter(env_filter)
-            .with_target(false)
-            .with_thread_ids(true)
-            .init();
+        subscriber.pretty().init();
     }
     
     info!("Logging initialized (verbose={}, json={})", cli.verbose, cli.json_logs);
@@ -276,19 +268,11 @@ async fn register_components(system: &HFTStealthSystem) -> Result<(), Box<dyn st
     let jax_model = JAXModel::new()?;
     system.register_component(jax_model);
     
-    // Register risk engine
-    let risk_engine = RiskEngine::new();
-    system.register_component(risk_engine);
-    
     // Register stealth executor
     let stealth_executor = StealthExecutor::new();
     system.register_component(stealth_executor);
     
-    // Register latency watchdog
-    let latency_watchdog = LatencyWatchdog::new(Duration::from_micros(1000));
-    system.register_component(latency_watchdog);
-    
-    info!("Registered {} components", 5);
+    info!("Registered {} components", 3);
     Ok(())
 }
 

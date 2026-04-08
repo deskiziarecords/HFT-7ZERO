@@ -3,13 +3,6 @@ rustflags = ["-C", "target-cpu=native"]
 target-dir = "target"
 incremental = false
 
-[target.x86_64-unknown-linux-gnu]
-linker = "clang"
-rustflags = [
-    "-C", "link-arg=-fuse-ld=lld",
-    "-C", "link-arg=-Wl,--no-undefined",
-]
-
 [alias]
 bench-all = "bench --features benchmarking --all-targets"
 release-prod = "build --profile production --features production"
