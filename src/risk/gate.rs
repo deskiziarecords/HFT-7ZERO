@@ -3,6 +3,7 @@
 // ============================================================
 
 use crate::risk::triggers::TriggerType;
+use crate::risk::ev_atr::EVATRModel;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GateStatus {
@@ -14,10 +15,12 @@ pub enum GateStatus {
 pub struct GateDecision {
     pub status: GateStatus,
     pub triggered_gates: Vec<TriggerType>,
+    pub signal_adjustment: f64,
 }
 
 pub struct RiskGate {
     pub status: GateStatus,
+    pub ev_atr: EVATRModel,
 }
 
 pub struct GateContext {
@@ -28,6 +31,8 @@ pub struct GateContext {
     pub kurtosis: f64,
     pub drift_bias: f64,
     pub gamma: f64,
+    pub ev_t: f64,
+    pub phi_t: f64,
 }
 
 impl Default for GateContext {
@@ -35,11 +40,13 @@ impl Default for GateContext {
         Self {
             volatility_regime: 0,
             price_variation: 0.0,
-            atr_20: 0.001,
+            atr_20: 0.005,
             delta_threshold: 0.3,
             kurtosis: 3.0,
             drift_bias: 0.0,
             gamma: 0.2,
+            ev_t: 0.0,
+            phi_t: 0.0,
         }
     }
 }
@@ -48,6 +55,7 @@ impl RiskGate {
     pub fn new() -> Self {
         Self {
             status: GateStatus::Open,
+            ev_atr: EVATRModel::new(Default::default()),
         }
     }
     
@@ -66,9 +74,13 @@ impl RiskGate {
 
         let status = if triggered.is_empty() { GateStatus::Open } else { GateStatus::Closed };
 
+        // Real-time risk adjustment via EV-ATR confluence
+        let signal_adjustment = self.ev_atr.compute_q_t(ctx.ev_t, ctx.atr_20, ctx.phi_t);
+
         GateDecision {
             status,
             triggered_gates: triggered,
+            signal_adjustment,
         }
     }
 }

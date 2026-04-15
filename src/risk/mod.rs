@@ -14,6 +14,7 @@ pub mod var;
 pub mod stress_test;
 pub mod limits;
 pub mod pnl;
+pub mod ev_atr;
 
 pub use engine::RiskEngine;
 pub use gate::{RiskGate, GateStatus, GateDecision};

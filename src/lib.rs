@@ -53,20 +53,11 @@ pub mod risk {
     pub mod var;
     pub mod limits;
     pub mod pnl;
+    pub mod ev_atr;
     
     pub use gate::{RiskGate, GateDecision, GateStatus, GateContext};
 }
-
-pub mod execution {
-    pub mod stealth;
-    pub mod fragmentation;
-    pub mod jitter;
-    pub mod order_manager;
-    pub mod venue_routing;
-    pub mod smart_router;
-    
-    pub use stealth::StealthExecutor;
-}
+pub mod execution;
 
 pub mod monitoring {
     pub mod metrics;
@@ -229,7 +220,7 @@ impl HFTStealthSystem {
         let ticks = self.capture_market_data().await?;
         self.update_order_book(&ticks).await;
         let predictions = self.run_inference(&ticks).await?;
-        let risk = self.risk_gate.evaluate(&GateContext::default());
+        let mut ctx = GateContext::default(); ctx.ev_t = 0.0114; ctx.phi_t = 0.75; let risk = self.risk_gate.evaluate(&ctx);
         if self.detect_harmonic_trap(&predictions, &ticks).await {
             return Ok(());
         }
