@@ -10,6 +10,7 @@ pub enum TickType {
     Ask,
     Trade,
     Snapshot,
+    Cancel,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]

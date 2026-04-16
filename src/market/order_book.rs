@@ -66,3 +66,36 @@ impl OrderBook {
         self.asks.keys().next().map(|&p| p as f64 / 10000.0).unwrap_or(0.0)
     }
 }
+
+impl OrderBook {
+    pub fn spread(&self) -> f64 {
+        self.best_ask() - self.best_bid()
+    }
+
+    pub fn mid_price(&self) -> f64 {
+        (self.best_bid() + self.best_ask()) / 2.0
+    }
+
+    pub fn total_bid_volume(&self) -> f64 {
+        self.bids.values().sum()
+    }
+
+    pub fn total_ask_volume(&self) -> f64 {
+        self.asks.values().sum()
+    }
+}
+
+pub struct OrderBookLevel {
+    pub price: f64,
+    pub volume: f64,
+}
+
+impl OrderBook {
+    pub fn bid_at_depth(&self, depth: usize) -> Option<OrderBookLevel> {
+        self.bids.iter().rev().nth(depth).map(|(&p, &v)| OrderBookLevel { price: p as f64 / 10000.0, volume: v })
+    }
+
+    pub fn ask_at_depth(&self, depth: usize) -> Option<OrderBookLevel> {
+        self.asks.iter().nth(depth).map(|(&p, &v)| OrderBookLevel { price: p as f64 / 10000.0, volume: v })
+    }
+}

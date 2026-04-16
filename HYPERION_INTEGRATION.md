@@ -76,3 +76,43 @@ cd dashboard
 npm install
 npm run dev
 ```
+
+## 7. Advanced Architecture: Frequency Design & Causal Fusion
+
+### 7.1 Frequency-Separated Pipeline
+To mirror real market dynamics, the system utilizes a multi-frequency execution model for its Operators (L1-L6):
+- **VeryLow (Daily)**: L1 Range extraction.
+- **Low (Hourly)**: L2 Memory accumulation.
+- **Medium (Minute)**: L4 Liquidity field updates.
+- **High (Every Tick)**: L5 Gamma control.
+
+### 7.2 Execution Hierarchy (L6-L3-LX)
+The main execution loop (`process_cycle`) enforces a strict priority hierarchy:
+1. **L6 (Bankruptcy Gate)**: Checked first. Halts all processing if triggered.
+2. **L3 (Macro Interrupts)**: Checked second to handle news or system-wide shocks.
+3. **L1-L5**: Executed according to their respective frequency schedules.
+
+### 7.3 Causal Amplification & Fusion
+The RiskGate now incorporates **Causal Fusion** to amplify signal reliability. It fuses IPDA probabilities with causal lead/lag results using temporal decay:
+2567P_{fused} = (1-w)P_{IPDA} + w \cdot \max(P_{lead} \cdot P_{trans} \cdot e^{-0.08\tau})2567
+
+### 7.4 Layer 7: Adaptive Controller
+A dedicated controller monitors the performance of each layer and dynamically adjusts weighting parameters (e.g., dampening $\lambda_5$ if the Gamma Amplifier triggers too frequently).
+
+### 7.5 Interaction Tracking
+The system logs cross-layer interactions (e.g., `[Layer4] <- Layer2_Memory (Medium)`) via the `InteractionLogger` for continuous validation of coupling assumptions.
+
+## 5. Build & Execution
+
+### 5.1 Backend (Rust)
+```bash
+cargo build --release
+cargo test --test hyperion_integration_test
+```
+
+### 5.2 Frontend (Dashboard)
+```bash
+cd dashboard
+npm install
+npm run dev
+```

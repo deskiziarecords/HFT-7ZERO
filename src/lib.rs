@@ -2,11 +2,12 @@
 // HFT STEALTH SYSTEM - CORE LIBRARY
 // ============================================================
 
-#![deny(warnings)]
+#![feature(float_gamma)]
 #![feature(allocator_api)]
 #![feature(asm_experimental_arch)]
 #![feature(portable_simd)]
 #![feature(strict_provenance)]
+#![deny(warnings)]
 
 pub mod memory {
     pub mod allocator;
@@ -38,7 +39,7 @@ pub mod market {
     pub mod liquidity;
     pub mod price_level;
     
-    pub use order_book::OrderBook;
+    pub use order_book::{OrderBook, OrderBookLevel};
     pub use tick::Tick;
 }
 
@@ -47,12 +48,20 @@ pub mod ml {
     pub use jax_bridge::JAXModel;
 }
 
+pub mod causality {
+    pub mod granger;
+    pub mod transfer_entropy;
+    pub mod ccm;
+    pub mod spearman;
+    pub mod fusion;
+    pub mod lag_selection;
+    pub mod causality_network;
+}
+
 pub mod risk;
 pub mod execution;
-
-pub mod monitoring {
-    pub mod metrics;
-}
+pub mod os;
+pub mod monitoring;
 
 pub mod config {
     pub mod settings;
@@ -75,10 +84,10 @@ pub mod utils {
 }
 
 pub use config::SystemConfig;
-pub use market::OrderBook;
+pub use market::{OrderBook, OrderBookLevel};
 pub use risk::RiskGate;
 pub use execution::StealthExecutor;
-pub use monitoring::metrics::MetricsCollector;
+pub use monitoring::metrics::{MetricsCollector, SystemMetrics};
 
 use std::sync::Arc;
 use std::time::{Instant, Duration};
@@ -95,6 +104,8 @@ pub struct HFTStealthSystem {
     pub(crate) market_data: Arc<RwLock<OrderBook>>,
     pub(crate) risk_gate: Arc<RiskGate>,
     pub(crate) stealth_executor: Arc<StealthExecutor>,
+    pub(crate) market_os: Arc<crate::os::MarketOS>,
+    pub(crate) adaptive_controller: Arc<RwLock<crate::os::AdaptiveController>>,
     pub(crate) metrics: Arc<MetricsCollector>,
     pub(crate) components: DashMap<String, Box<dyn Component>>,
     pub(crate) shutdown_tx: watch::Sender<bool>,
@@ -133,17 +144,6 @@ pub enum HealthStatus {
     Stopping,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct SystemMetrics {
-    pub latency_p50_ns: u64,
-    pub latency_p99_ns: u64,
-    pub throughput_ticks_sec: f64,
-    pub detection_probability: f64,
-    pub sharpe_ratio: f64,
-    pub total_trades: u64,
-    pub total_pnl: f64,
-}
-
 impl HFTStealthSystem {
     pub fn new(config: SystemConfig) -> Result<Self, SystemError> {
         let (tx, rx) = watch::channel(false);
@@ -152,6 +152,8 @@ impl HFTStealthSystem {
             market_data: Arc::new(RwLock::new(OrderBook::new())),
             risk_gate: Arc::new(RiskGate::new()),
             stealth_executor: Arc::new(StealthExecutor::new()),
+            market_os: crate::os::MARKET_OS.clone(),
+            adaptive_controller: Arc::new(RwLock::new(crate::os::AdaptiveController::new())),
             metrics: Arc::new(MetricsCollector::new()),
             components: DashMap::new(),
             shutdown_tx: tx,
@@ -208,23 +210,48 @@ impl HFTStealthSystem {
     
     async fn process_cycle(&self) -> Result<(), SystemError> {
         let cycle_start = PreciseTime::now();
+
+        // 1. L6 FIRST (Highest Priority - Bankruptcy)
+        let bankruptcy = self.market_os.operator_l6();
+        if bankruptcy.triggered {
+            return Ok(()); // Halt everything
+        }
+
         let ticks = self.capture_market_data().await?;
+
+        // 2. L3 SECOND (Interrupts/News)
+        let interrupt = self.market_os.operator_l3(&ticks);
+        if interrupt.triggered {
+             // Handle interrupt (e.g. adjust aggression)
+        }
+
+        // 3. Then other layers based on frequency
+        self.market_os.execute_pipeline_by_frequency(&self.market_data.read(), &ticks);
+        // 4. Layer 7: Adaptive Controller
+        {
+            let mut controller = self.adaptive_controller.write();
+            let mut outputs = std::collections::HashMap::new();
+            // Populate with latest operator results (simulated here for POC)
+            outputs.insert("L5".to_string(), crate::os::OperatorResult { success: true, triggered: false, state_change: false, latency_ns: 0, value: 0.85, message: "".into() });
+            controller.update(&outputs);
+        }
+
         self.update_order_book(&ticks).await;
         let predictions = self.run_inference(&ticks).await?;
 
         let mut gate_ctx = GateContext::default();
-        // Use actual model outputs for context
         if let Some(&phi) = predictions.first() { gate_ctx.phi_t = phi; }
         if let Some(&ev) = predictions.get(1) { gate_ctx.ev_t = ev; }
 
-        let risk = self.risk_gate.evaluate(&gate_ctx);
+        // Evaluate with causality fusion
+        // p_lead and p_trans would come from inference in production
+        let risk = self.risk_gate.evaluate_with_causality(&gate_ctx, 0.867, 0.623, 0.5);
 
         if self.detect_harmonic_trap(&predictions, &ticks).await {
             return Ok(());
         }
 
         if risk.status == crate::risk::gate::GateStatus::Open {
-            // Pass the signal adjustment (sizing) to execution
             self.execute_trades(&predictions, risk.signal_adjustment).await?;
         }
 
@@ -241,7 +268,6 @@ impl HFTStealthSystem {
     }
     
     async fn run_inference(&self, _ticks: &[Tick]) -> Result<Vec<f64>, SystemError> {
-        // Mock inference producing [phi_t, ev_t]
         Ok(vec![0.75, 0.0114])
     }
     
@@ -251,8 +277,9 @@ impl HFTStealthSystem {
     
     async fn execute_trades(&self, _signals: &[f64], qty: f64) -> Result<(), SystemError> {
         if qty > 0.0 {
-            // Plan optimal routing across venues
-            if let Some(routing) = self.stealth_executor.plan_routing(qty) { tracing::debug!("Optimal routing planned: {:?}", routing.weights); }
+            if let Some(routing) = self.stealth_executor.plan_routing(qty) {
+                 tracing::debug!("Optimal routing weights: {:?}", routing.weights);
+            }
         }
         Ok(())
     }

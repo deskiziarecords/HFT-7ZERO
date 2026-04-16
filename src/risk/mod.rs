@@ -5,6 +5,7 @@ pub mod var;
 pub mod limits;
 pub mod pnl;
 pub mod ev_atr;
+pub mod causal_gate;
 pub mod stress_test;
 
 pub use engine::RiskEngine;

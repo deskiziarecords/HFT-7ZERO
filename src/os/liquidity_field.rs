@@ -21,7 +21,7 @@ impl NavierStokesLiquidity {
         }
     }
     
-    pub fn step(&mut self, dt: f64, dx: f64) {
+    pub fn step(&mut self,  _dt: f64,  _dx: f64) {
         // Simplified Navier-Stokes integration
     }
 }
