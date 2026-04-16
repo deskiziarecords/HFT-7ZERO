@@ -10,11 +10,6 @@ fn test_ev_atr_confluence() {
     let phi_t = 0.75;
 
     let qt = model.compute_q_t(ev_t, atr_t, phi_t);
-    // f_kelly = 0.0114 / (3.0 * 0.015 * 0.005) = 50.666...
-    // g_vol = (0.005 / 0.008)^0.5 = 0.7905...
-    // h_conf = 0.75^1.5 = 0.6495...
-    // C_max = 1000
-    // Result = 50.66 * 0.79 * 0.6495 * 1000 = 26012.8
     assert!(qt > 26000.0 && qt < 26100.0, "qt was {}", qt);
 }
 
@@ -28,7 +23,7 @@ fn test_schur_routing() {
         slippage_gamma: vec![0.1, 0.05],
         slippage_delta: vec![1.5, 1.5],
         correlation_decay: 0.01,
-        adelic_rho: 1000.0, // Relaxed for testing
+        adelic_rho: 1000.0,
         adelic_max_nonzero: 2,
         blowup_kappa: 1000.0,
     };
@@ -36,7 +31,21 @@ fn test_schur_routing() {
     let ofi = DMatrix::from_element(2, 2, 0.1);
     let prev_w = DVector::from_element(2, 0.5);
 
-    let result = router.optimize(100.0, &ofi, &prev_w);
+    let result = router.optimize(100.0, &ofi, &prev_w).unwrap();
     assert!(result.adelic_valid);
     assert!((result.weights.iter().sum::<f64>() - 1.0).abs() < 1e-6);
+}
+
+#[test]
+fn test_schur_routing_empty_venues() {
+    let router = SchurRouter::new(vec![], RoutingParams {
+        slippage_gamma: vec![],
+        slippage_delta: vec![],
+        correlation_decay: 0.0,
+        adelic_rho: 0.0,
+        adelic_max_nonzero: 0,
+        blowup_kappa: 0.0,
+    });
+    let result = router.optimize(100.0, &DMatrix::zeros(0, 0), &DVector::zeros(0));
+    assert!(result.is_none());
 }

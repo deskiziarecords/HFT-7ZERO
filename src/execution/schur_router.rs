@@ -40,8 +40,12 @@ impl SchurRouter {
         q_total: f64,
         ofi_matrix: &DMatrix<f64>,
         prev_weights: &DVector<f64>,
-    ) -> RoutingResult {
+    ) -> Option<RoutingResult> {
         let n = self.venues.len();
+        if n == 0 {
+            return None;
+        }
+
         let mut c = DMatrix::zeros(n, n);
 
         for i in 0..n {
@@ -100,12 +104,12 @@ impl SchurRouter {
         let w_vec = DVector::from_vec(weights.clone());
         let cost_estimate = (w_vec.transpose() * (&c * &w_vec))[(0, 0)];
 
-        RoutingResult {
+        Some(RoutingResult {
             weights,
             quantities,
             cost_estimate,
             adelic_valid,
             blowup_detected,
-        }
+        })
     }
 }
