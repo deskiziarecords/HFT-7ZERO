@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HFT-7ZERO | HYPERION TRADE DASHBOARD</title>
+    <style>
+        :root {
+            --bg-color: #0b0c10;
+            --panel-bg: #1f2833;
+            --text-primary: #66fcf1;
+            --text-secondary: #45a29e;
+            --accent-green: #00ff41;
+            --accent-red: #ff3333;
+            --accent-amber: #ffcc00;
+            --accent-blue: #00ffff;
+            --border-color: #2b3542;
+            --font-mono: 'SF Mono', 'Fira Code', 'Roboto Mono', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: border-color 0.1s ease;
+        }
+
+        /* Utility Classes */
+        .text-green { color: var(--accent-green); }
+        .text-red { color: var(--accent-red); }
+        .text-amber { color: var(--accent-amber); }
+        .text-blue { color: var(--accent-blue); }
+        .bold { font-weight: 700; }
+        
+        /* Layout */
+        header {
+            height: 80px;
+            background: var(--panel-bg);
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        .header-title {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header-title h1 {
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--text-secondary);
+        }
+
+        .header-title span {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .system-status-display {
+            font-size: 2.5rem;
+            font-weight: 900;
+            letter-spacing: 5px;
+            padding: 5px 20px;
+            border: 2px solid var(--text-primary);
+            background: rgba(0,0,0,0.3);
+            min-width: 250px;
+            text-align: center;
+            text-shadow: 0 0 15px currentColor;
+        }
+
+        .controls-area {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        main {
+            flex: 1;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1.2fr 1.8fr 1.2fr;
+            gap: 20px;
+        }
+
+        /* Widget Containers */
+        .widget {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.2);
+        }
+
+        .widget-header {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* --- Component: Latency Wall --- */
+        #latency-widget {
+            grid-column: 1 / 2;
+            grid-row: 1 / 2;
+        }
+        canvas.latency-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .latency-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 0.8rem;
+        }
+
+        /* --- Component: Confluence Matrix --- */
+        #sizing-widget {
+            grid-column: 2 / 3;
+            grid-row: 1 / 2;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .matrix-container {
+            width: 60%;
+            height: 100%;
+            position: relative;
+        }
+        .matrix-readout {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        .readout-val { font-size: 2.5rem; font-weight: bold; }
+        .readout-label { font-size: 0.8rem; color: var(--text-secondary); }
+        
+        /* --- Component: Stealth Detection --- */
+        #stealth-widget {
+            grid-column: 3 / 4;
+            grid-row: 1 / 2;
+        }
+        .stealth-goal {
+            position: absolute;
+            top: 30%;
+            right: 40px;
+            color: var(--accent-green);
+            font-size: 0.7rem;
+            border-right: 1px dashed var(--accent-green);
+            padding-right: 5px;
+        }
+
+        /* --- Component: Risk Gate --- */
+        #risk-widget {
+            grid-column: 1 / 2;
+            grid-row: 2 / 3;
+        }
+        .lambda-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            flex: 1;
+            align-content: center;
+        }
+        .lambda-tile {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100px;
+            transition: all 0.2s;
+        }
+        .lambda-label { font-size: 1.2rem; margin-bottom: 5px; }
+        .lambda-state { font-size: 0.7rem; text-transform: uppercase; }
+        
+        .state-dimmed { opacity: 0.3; border-color: #333; }
+        .state-evaluating { 
+            box-shadow: 0 0 10px var(--accent-blue); 
+            border-color: var(--accent-blue); 
+            color: var(--accent-blue);
+        }
+        .state-triggered { 
+            box-shadow: 0 0 15px var(--accent-red); 
+            border-color: var(--accent-red); 
+            background: rgba(255, 51, 51, 0.1);
+            color: var(--accent-red);
+        }
+
+        /* --- Component: Routing --- */
+        #routing-widget {
+            grid-column: 2 / 4;
+            grid-row: 2 / 3;
+        }
+        .routing-display {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            height: 100%;
+            justify-content: center;
+        }
+        .venue-row {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .venue-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+        .progress-track {
+            height: 25px;
+            background: #000;
+            border: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+        }
+        .progress-fill {
+            height: 100%;
+            background: var(--accent-green);
+            transition: width 0.2s linear;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: #000;
+            font-weight: bold;
+            position: relative;
+        }
+        /* Scanline effect for bars */
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to right, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
+            animation: shimmer 2s infinite;
+        }
+
+        .routing-status {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+            font-size: 0.8rem;
+        }
+        .led {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .led-on { background: var(--accent-green); box-shadow: 0 0 5px var(--accent-green); }
+        .led-off { background: var(--accent-red); }
+
+        /* Controls Styling */
+        .btn {
+            background: transparent;
+            border: 1px solid var(--text-primary);
+            color: var(--text-primary);
+            padding: 10px 20px;
+            font-family: var(--font-mono);
+            cursor: pointer;
+            text-transform: uppercase;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .btn:hover { background: rgba(102, 252, 241, 0.1); }
+        
+        .btn-panic {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+            box-shadow: 0 0 10px rgba(255, 51, 51, 0.2);
+        }
+        .btn-panic:hover {
+            background: var(--accent-red);
+            color: #fff;
+            box-shadow: 0 0 20px var(--accent-red);
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .control-group label { font-size: 0.7rem; color: var(--text-secondary); }
+        
+        select, .toggle-switch {
+            background: #000;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 5px;
+            font-family: var(--font-mono);
+        }
+
+        /* Log / Footer area (Simulated) */
+        #log-widget {
+            grid-column: 1 / 4;
+            grid-row: 3 / 4;
+            font-size: 0.8rem;
+            overflow: hidden;
+        }
+        .log-content {
+            display: flex;
+            flex-direction: column-reverse;
+            height: 100%;
+            overflow-y: hidden;
+            color: #888;
+        }
+        .log-entry { margin-bottom: 4px; }
+        .log-entry span { margin-right: 10px; }
+
+        /* Animations */
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        
+        .flash-perimeter {
+            animation: flash-white 0.2s ease-out;
+        }
+
+        @keyframes flash-white {
+            0% { box-shadow: inset 0 0 0 50px rgba(255,255,255,0.8); }
+            100% { box-shadow: inset 0 0 0 0 rgba(255,255,255,0); }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1200px) {
+            main {
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: auto;
+                overflow-y: auto;
+            }
+            #latency-widget { grid-column: span 1; }
+            #sizing-widget { grid-column: span 1; }
+            #stealth-widget { grid-column: span 2; }
+            #risk-widget { grid-column: span 1; }
+            #routing-widget { grid-column: span 2; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-title">
+        <h1>HFT-7ZERO</h1>
+        <span>HYPERION TRADE // STEALTH EXECUTION</span>
+    </div>
+
+    <div id="system-status" class="system-status-display text-green">OPEN</div>
+
+    <div class="controls-area">
+        <div class="control-group">
+            <label>Volatility Regime</label>
+            <select id="regime-select">
+                <option value="Low">Low</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="High">High</option>
+            </select>
+        </div>
+        
+        <div class="control-group" style="align-items: center;">
+            <label style="margin-bottom: 5px;">Dry Run</label>
+            <input type="checkbox" id="dry-run-check" checked style="accent-color: var(--accent-blue);">
+        </div>
+
+        <button id="btn-panic" class="btn btn-panic">PANIC</button>
+    </div>
+</header>
+
+<main>
+    <!-- Latency Widget -->
+    <section id="latency-widget" class="widget">
+        <div class="widget-header">
+            <span>Latency Wall (1ms)</span>
+            <span id="latency-alert-indicator" class="text-red" style="display:none;">SPIKE</span>
+        </div>
+        <canvas id="latencyCanvas" class="latency-canvas"></canvas>
+        <div class="latency-stats">
+            <span>P50: <b id="p50-val">0</b></span>
+            <span>P99: <b id="p99-val">0</b></span>
+            <span>MAX: <b id="max-val">0</b></span>
+        </div>
+    </section>
+
+    <!-- Sizing Widget -->
+    <section id="sizing-widget" class="widget">
+        <div class="widget-header" style="position: absolute; width: 100%; top:0; left:0; background:var(--panel-bg); padding: 15px; z-index: 2; border-bottom: 1px solid var(--border-color);">
+            <span>Confluence Matrix (EV-ATR)</span>
+        </div>
+        <div class="matrix-container">
+            <canvas id="radarCanvas" style="width:100%; height:100%;"></canvas>
+            <div class="matrix-readout">
+                <div class="readout-val text-blue" id="q-t-val">0.00</div>
+                <div class="readout-label">UNITS ($q_t$)</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stealth Widget -->
+    <section id="stealth-widget" class="widget">
+        <div class="widget-header">
+            <span>Stealth Detection Prob.</span>
+            <span id="stealth-score-text" class="text-green">0.00%</span>
+        </div>
+        <div class="stealth-goal">THRESHOLD: 0.1%</div>
+        <canvas id="stealthCanvas" class="latency-canvas"></canvas>
+    </section>
+
+    <!-- Risk Widget -->
+    <section id="risk-widget" class="widget">
+        <div class="widget-header">
+            <span>Risk Gate Telemetry ($\Lambda$ Grid)</span>
+            <span>VOL REGIME: <span id="vol-regime-val" class="text-amber">2</span></span>
+        </div>
+        <div class="lambda-grid">
+            <div class="lambda-tile state-evaluating" id="lambda-1">
+                <span class="lambda-label">$\lambda_1$</span>
+                <span class="lambda-state">EVAL</span>
+            </div>
+            <div class="lambda-tile state-dimmed" id="lambda-2">
+                <span class="lambda-label">$\lambda_2$</span>
+                <span class="lambda-state">IDLE</span>
+            </div>
+            <div class="lambda-tile state-dimmed" id="lambda-3">
+                <span class="lambda-label">$\lambda_3$</span>
+                <span class="lambda-state">IDLE</span>
+            </div>
+            <div class="lambda-tile state-dimmed" id="lambda-4">
+                <span class="lambda-label">$\lambda_4$</span>
+                <span class="lambda-state">IDLE</span>
+            </div>
+            <div class="lambda-tile state-dimmed" id="lambda-5">
+                <span class="lambda-label">$\lambda_5$</span>
+                <span class="lambda-state">IDLE</span>
+            </div>
+            <div class="lambda-tile state-dimmed" id="lambda-6">
+                <span class="lambda-label">$\lambda_6$</span>
+                <span class="lambda-state">IDLE</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Routing Widget -->
+    <section id="routing-widget" class="widget">
+        <div class="widget-header">
+            <span>Schur Routing Topology</span>
+            <div class="routing-status">
+                <span><span class="led led-on"></span>ADELIC VALID</span>
+                <span>COST SAVE: <b id="cost-save">0.00</b> bps</span>
+            </div>
+        </div>
+        <div class="routing-display" id="routing-container">
+            <!-- Dynamic Content -->
+        </div>
+    </section>
+
+    <!-- Log Widget -->
+    <section id="log-widget" class="widget">
+        <div class="widget-header">SYSTEM LOGS</div>
+        <div class="log-content" id="log-feed">
+            <!-- Logs go here -->
+        </div>
+    </section>
+</main>
+
+<script>
+/**
+ * HFT-7ZERO x HYPERION TRADE POC Controller
+ * Handles simulation, canvas rendering, and DOM updates.
+ */
+
+// --- CONFIGURATION ---
+const CONFIG = {
+    updateInterval: 50, // ms (20Hz simulation)
+    historyLength: 200, // Points for charts
+    latencyBaseline: 1000000, // ns (1ms)
+    regimes: {
+        Low: { vol: 0.3, latency: 200000 },
+        Medium: { vol: 0.6, latency: 450000 },
+        High: { vol: 0.9, latency: 800000 }
+    }
+};
+
+// --- STATE MANAGEMENT ---
+const state = {
+    systemStatus: 'OPEN', // OPEN, LOCKED, SHUTDOWN
+    regime: 'Medium',
+    dryRun: true,
+    latencyHistory: [],
+    stealthHistory: [],
+    metrics: {
+        p50: 0, p99: 0, max: 0
+    }
+};
+
+// Initialize History Arrays
+for(let i=0; i<CONFIG.historyLength; i++) {
+    state.latencyHistory.push(0);
+    state.stealthHistory.push(0);
+}
+
+// --- DOM ELEMENTS ---
+const els = {
+    systemStatus: document.getElementById('system-status'),
+    latencyCanvas: document.getElementById('latencyCanvas'),
+    stealthCanvas: document.getElementById('stealthCanvas'),
+    radarCanvas: document.getElementById('radarCanvas'),
+    logFeed: document.getElementById('log-feed'),
+    regimeSelect: document.getElementById('regime-select'),
+    dryRunCheck: document.getElementById('dry-run-check'),
+    btnPanic: document.getElementById('btn-panic'),
+    qtVal: document.getElementById('q-t-val'),
+    p50Val: document.getElementById('p50-val'),
+    p99Val: document.getElementById('p99-val'),
+    maxVal: document.getElementById('max-val'),
+    stealthText: document.getElementById('stealth-score-text'),
+    volRegimeVal: document.getElementById('vol-regime-val'),
+    costSaveVal: document.getElementById('cost-save'),
+    routingContainer: document.getElementById('routing-container'),
+    body: document.body
+};
+
+// --- CANVAS SETUP ---
+function setupCanvas(canvas) {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    return { ctx, width: rect.width, height: rect.height };
+}
+
+// --- DATA GENERATOR (Simulates Backend) ---
+function generateTelemetry() {
+    if (state.systemStatus === 'SHUTDOWN') return null;
+
+    const regimeConfig = CONFIG.regimes[state.regime];
+    const isLocked = state.systemStatus === 'LOCKED';
+    
+    // 1. Latency Logic
+    let baseLatency = regimeConfig.latency;
+    let jitter = Math.random() * baseLatency * 0.2;
+    // Random spikes
+    if (Math.random() > 0.98) jitter += baseLatency * 1.5; 
+    if (state.regime === 'High' && Math.random() > 0.90) jitter += baseLatency * 0.8;
+    
+    let currentLatency = Math.floor(baseLatency + jitter);
+    
+    // 2. Stealth Score (Probability 0-1, inverted for display)
+    // Ideally near 1.0 (99.9% stealth)
+    let stealthBase = 0.9995;
+    if (state.regime === 'High') stealthBase = 0.9980;
+    let stealthNoise = (Math.random() - 0.5) * 0.001;
+    let currentStealth = Math.max(0.9, Math.min(1.0, stealthBase + stealthNoise));
+
+    // 3. Confluence Matrix Inputs
+    const f_kelly = 40 + Math.random() * 40; // 40-80
+    const g_vol = isLocked ? 0.1 : (Math.random() * 0.5 + 0.4); // 0.4-0.9
+    const h_conf = Math.random() * 0.8 + 0.1; // 0.1-0.9
+    
+    // Calculate q_t (mock formula)
+    let q_t = (f_kelly * g_vol * 1000) * (h_conf + 0.1);
+    if (isLocked) q_t = 0;
+
+    // 4. Routing (Randomize weights slightly)
+    const venues = [
+        { id: 'CME', weight: 0.6 + (Math.random() * 0.1 - 0.05) },
+        { id: 'LMAX', weight: 0.4 - (Math.random() * 0.1 - 0.05) },
+        { id: 'ICE', weight: Math.random() * 0.05 } // Tiny slice
+    ];
+    // Normalize
+    const totalW = venues.reduce((a, b) => a + b.weight, 0);
+    venues.forEach(v => {
+        v.weight = v.weight / totalW;
+        v.qty = Math.floor(q_t * v.weight);
+    });
+
+    // 5. Risk Triggers
+    const triggers = [];
+    if (state.regime === 'High' && Math.random() > 0.9) triggers.push('lambda1');
+    if (currentLatency > CONFIG.latencyBaseline * 1.5) triggers.push('lambda3');
+    if (Math.random() > 0.95) triggers.push('lambda5'); // Random check
+
+    return {
+        timestamp: Date.now(),
+        system_status: state.systemStatus,
+        sizing: {
+            q_t: q_t,
+            f_kelly: f_kelly,
+            g_vol: g_vol * 100, // Scale for visual
+            h_conf: h_conf
+        },
+        routing: {
+            venues: venues,
+            adelic_valid: !triggers.includes('lambda3')
+        },
+        risk: {
+            triggers: triggers,
+            volatility_regime: CONFIG.regimes[state.regime].vol > 0.7 ? 3 : (CONFIG.regimes[state.regime].vol > 0.4 ? 2 : 1)
+        },
+        performance: {
+            latency_ns: currentLatency,
+            stealth_score: currentStealth
+        }
+    };
+}
+
+// --- RENDERERS ---
+
+function renderLatency() {
+    const { ctx, width, height } = setupCanvas(els.latencyCanvas);
+    
+    // Clear
+    ctx.clearRect(0, 0, width, height);
+
+    // Baseline (1ms)
+    const scaleY = height / (CONFIG.latencyBaseline * 1.5);
+    const yBase = height - (CONFIG.latencyBaseline * scaleY);
+
+    ctx.strokeStyle = '#ff3333';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(0, yBase);
+    ctx.lineTo(width, yBase);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Plot Line
+    ctx.strokeStyle = '#66fcf1';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    
+    const step = width / (CONFIG.historyLength - 1);
+    
+    state.latencyHistory.forEach((lat, i) => {
+        const x = i * step;
+        const y = height - (lat * scaleY);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Gradient fill under line
+    ctx.lineTo(width, height);
+    ctx.lineTo(0, height);
+    ctx.fillStyle = 'rgba(102, 252, 241, 0.1)';
+    ctx.fill();
+
+    // Label for Baseline
+    ctx.fillStyle = '#ff3333';
+    ctx.fillText('1ms WALL', 5, yBase - 5);
+}
+
+function renderStealth() {
+    const { ctx, width, height } = setupCanvas(els.stealthCanvas);
+    ctx.clearRect(0, 0, width, height);
+
+    // Threshold line (0.9990 on 0-1 scale, so 0.001 probability)
+    // Inverting logic: Visual chart shows Probability (0-100%)
+    // The JSON has stealth_score (0.9999 means 0.01% detected).
+    // Let's visualize DETECTION PROBABILITY: p = 1 - score.
+    
+    const thresholdY = height * 0.8; // Arbitrary visual position for 0.1%
+
+    ctx.strokeStyle = '#00ff41';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath();
+    ctx.moveTo(0, thresholdY);
+    ctx.lineTo(width, thresholdY);
+    ctx.stroke();
+    ctx.fillStyle = '#00ff41';
+    ctx.fillText('0.1% THRESH', 5, thresholdY - 5);
+
+    ctx.strokeStyle = '#00ffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    const step = width / (CONFIG.historyLength - 1);
+    
+    state.stealthHistory.forEach((score, i) => {
+        const detectionProb = 1 - score;
+        // Logarithmic scale for visibility or just zoom in? Let's zoom in.
+        // Scale: 0.0 to 0.005 (0.5%)
+        const y = height - (detectionProb * height / 0.002); 
+        const x = i * step;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+}
+
+function renderRadar(sizing) {
+    const { ctx, width, height } = setupCanvas(els.radarCanvas);
+    const cx = width / 2;
+    const cy = height / 2;
+    const radius = Math.min(cx, cy) - 20;
+
+    ctx.clearRect(0, 0, width, height);
+
+    // Draw Web (3 axes: Kelly, Vol, Conf)
+    const axes = [
+        { label: 'Kelly', val: sizing.f_kelly / 100 }, // 0-1 roughly
+        { label: 'Vol', val: sizing.g_vol / 100 },
+        { label: 'Conf', val: sizing.h_conf }
+    ];
+
+    // Background circles
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    [0.33, 0.66, 1].forEach(scale => {
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * scale, 0, Math.PI * 2);
+        ctx.stroke();
+    });
+
+    // Axes lines & Labels
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#45a29e';
+    ctx.font = '10px monospace';
+
+    axes.forEach((axis, i) => {
+        const angle = (Math.PI * 2 * i) / 3 - Math.PI / 2;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+        
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(x, y);
+        ctx.strokeStyle = '#2b3542';
+        ctx.stroke();
+
+        ctx.fillText(axis.label, x * 1.2, y * 1.2);
+    });
+
+    // Data Polygon
+    ctx.beginPath();
+    axes.forEach((axis, i) => {
+        const angle = (Math.PI * 2 * i) / 3 - Math.PI / 2;
+        const val = Math.max(0.1, Math.min(1, axis.val)); // Clamp
+        const x = cx + Math.cos(angle) * (radius * val);
+        const y = cy + Math.sin(angle) * (radius * val);
+        
+        if (i===0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(102, 252, 241, 0.3)';
+    ctx.fill();
+    ctx.strokeStyle = '#66fcf1';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+}
+
+function updateDOM(data) {
+    // System Status
+    els.systemStatus.innerText = data.system_status;
+    if (data.system_status === 'OPEN') {
+        els.systemStatus.className = 'system-status-display text-green';
+    } else if (data.system_status === 'LOCKED') {
+        els.systemStatus.className = 'system-status-display text-amber';
+    } else {
+        els.systemStatus.className = 'system-status-display text-red';
+    }
+
+    // Matrix Readout
+    els.qtVal.innerText = data.sizing.q_t.toFixed(2);
+
+    // Latency Stats
+    const latencies = state.latencyHistory;
+    els.p50Val.innerText = (latencies[Math.floor(latencies.length * 0.5)] / 1000).toFixed(0) + 'μs';
+    els.p99Val.innerText = (latencies[Math.floor(latencies.length * 0.99)] / 1000).toFixed(0) + 'μs';
+    els.maxVal.innerText = (Math.max(...latencies) / 1000).toFixed(0) + 'μs';
+
+    // Stealth Text
+    const detectionProb = (1 - data.performance.stealth_score) * 100;
+    els.stealthText.innerText = detectionProb.toFixed(4) + '%';
+    els.stealthText.className = detectionProb > 0.1 ? 'text-red' : 'text-green';
+
+    // Risk Grid
+    els.volRegimeVal.innerText = data.risk.volatility_regime;
+    for (let i = 1; i <= 6; i++) {
+        const tile = document.getElementById(`lambda-${i}`);
+        tile.className = 'lambda-tile'; // Reset
+        
+        const stateSpan = tile.querySelector('.lambda-state');
+        
+        if (data.system_status === 'SHUTDOWN') {
+            tile.classList.add('state-dimmed');
+            stateSpan.innerText = 'OFF';
+        } else if (data.risk.triggers.includes(`lambda${i}`)) {
+            tile.classList.add('state-triggered');
+            stateSpan.innerText = 'TRIGGER';
+        } else if (Math.random() > 0.8) {
+            // Simulate evaluation flicker
+            tile.classList.add('state-evaluating');
+            stateSpan.innerText = 'EVAL';
+        } else {
+            tile.classList.add('state-dimmed');
+            stateSpan.innerText = 'IDLE';
+        }
+    }
+
+    // Routing
+    els.routingContainer.innerHTML = '';
+    data.routing.venues.forEach(venue => {
+        const pct = (venue.weight * 100).toFixed(1);
+        const html = `
+            <div class="venue-row">
+                <div class="venue-info">
+                    <span>${venue.id}</span>
+                    <span>${venue.qty} / ${pct}%</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill" style="width: ${pct}%"></div>
+                </div>
+            </div>
+        `;
+        els.routingContainer.innerHTML += html;
+    });
+    
+    // Cost Savings Mock
+    els.costSaveVal.innerText = (Math.random() * 2.5).toFixed(2);
+
+    // Latency Spike Alert (Flash)
+    if (data.performance.latency_ns > CONFIG.latencyBaseline) {
+        els.body.classList.remove('flash-perimeter');
+        void els.body.offsetWidth; // trigger reflow
+        els.body.classList.add('flash-perimeter');
+        addLog(`[ALERT] Latency Wall breached: ${(data.performance.latency_ns/1000).toFixed(0)}μs`);
+    }
+}
+
+function addLog(msg) {
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    const time = new Date().toISOString().split('T')[1].slice(0, -1);
+    entry.innerHTML = `<span style="color:#666">[${time}]</span> ${msg}`;
+    els.logFeed.prepend(entry);
+    // Limit logs
+    if (els.logFeed.children.length > 20) {
+        els.logFeed.lastElementChild.remove();
+    }
+}
+
+// --- MAIN LOOP ---
+
+let lastTime = 0;
+
+function loop(timestamp) {
+    if (timestamp - lastTime > CONFIG.updateInterval) {
+        const data = generateTelemetry();
+        
+        if (data) {
+            // Update History
+            state.latencyHistory.push(data.performance.latency_ns);
+            state.latencyHistory.shift();
+            
+            state.stealthHistory.push(data.performance.stealth_score);
+            state.stealthHistory.shift();
+
+            // Render
+            renderLatency();
+            renderStealth();
+            renderRadar(data.sizing);
+            updateDOM(data);
+        }
+        lastTime = timestamp;
+    }
+    requestAnimationFrame(loop);
+}
+
+// --- CONTROLS HANDLERS ---
+
+els.btnPanic.addEventListener('click', () => {
+    if (state.systemStatus === 'SHUTDOWN') {
+        state.systemStatus = 'OPEN';
+        els.btnPanic.innerText = 'PANIC';
+        els.btnPanic.classList.add('btn-panic');
+        els.btnPanic.style.background = 'transparent';
+        addLog('[SYS] System Restarted by Operator.');
+    } else {
+        state.systemStatus = 'SHUTDOWN';
+        els.btnPanic.innerText = 'RESTART SYSTEM';
+        els.btnPanic.classList.remove('btn-panic');
+        els.btnPanic.style.background = '#333';
+        addLog('[SYS] EMERGENCY SHUTDOWN TRIGGERED.');
+    }
+});
+
+els.regimeSelect.addEventListener('change', (e) => {
+    state.regime = e.target.value;
+    addLog(`[CFG] Volatility Regime changed to: ${state.regime.toUpperCase()}`);
+});
+
+els.dryRunCheck.addEventListener('change', (e) => {
+    state.dryRun = e.target.checked;
+    addLog(`[CFG] Dry Run mode: ${state.dryRun ? 'ENABLED' : 'DISABLED (LIVE)'}`);
+});
+
+// --- INIT ---
+addLog('[SYS] Dashboard Initialized.');
+addLog('[SYS] Connecting to Telemetry Stream...');
+requestAnimationFrame(loop);
+
+// Resize handler
+window.addEventListener('resize', () => {
+    renderLatency();
+    renderStealth();
+});
+
+</script>
+</body>
+</html>
