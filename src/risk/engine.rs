@@ -6,6 +6,7 @@
 // Integration with trading system
 // ============================================================
 
+use dashmap::DashMap;
 use super::*;
 use crate::market::OrderBook;
 use std::collections::VecDeque;
@@ -94,7 +95,7 @@ impl RiskEngine {
     fn check_limits(&self, metrics: &RiskMetrics) -> Result<(), String> {
         // Check position limit
         if let Some(breach) = self.position_limits.check_position_limits() {
-            let _ = self.event_sender.send(RiskEvent::LimitBreached(breach));
+            let _ = self.event_sender.send(RiskEvent::LimitBreached(breach.clone()));
             return Err(format!("Position limit breached: {:?}", breach));
         }
         

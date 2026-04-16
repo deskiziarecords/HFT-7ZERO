@@ -204,3 +204,7 @@ features = ["production", "instrumentation"]
 [package.metadata.cargo-all-features]
 deny-unknown-features = true
 skip-features = ["hardware-acceleration"]
+
+[[test]]
+name = "hyperion_integration_test"
+path = "tests/integration/hyperion_integration_test.rs"

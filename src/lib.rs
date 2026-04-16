@@ -47,26 +47,8 @@ pub mod ml {
     pub use jax_bridge::JAXModel;
 }
 
-pub mod risk {
-    pub mod gate;
-    pub mod triggers;
-    pub mod var;
-    pub mod limits;
-    pub mod pnl;
-    
-    pub use gate::{RiskGate, GateDecision, GateStatus, GateContext};
-}
-
-pub mod execution {
-    pub mod stealth;
-    pub mod fragmentation;
-    pub mod jitter;
-    pub mod order_manager;
-    pub mod venue_routing;
-    pub mod smart_router;
-    
-    pub use stealth::StealthExecutor;
-}
+pub mod risk;
+pub mod execution;
 
 pub mod monitoring {
     pub mod metrics;
@@ -229,13 +211,23 @@ impl HFTStealthSystem {
         let ticks = self.capture_market_data().await?;
         self.update_order_book(&ticks).await;
         let predictions = self.run_inference(&ticks).await?;
-        let risk = self.risk_gate.evaluate(&GateContext::default());
+
+        let mut gate_ctx = GateContext::default();
+        // Use actual model outputs for context
+        if let Some(&phi) = predictions.first() { gate_ctx.phi_t = phi; }
+        if let Some(&ev) = predictions.get(1) { gate_ctx.ev_t = ev; }
+
+        let risk = self.risk_gate.evaluate(&gate_ctx);
+
         if self.detect_harmonic_trap(&predictions, &ticks).await {
             return Ok(());
         }
+
         if risk.status == crate::risk::gate::GateStatus::Open {
-            self.execute_trades(&predictions).await?;
+            // Pass the signal adjustment (sizing) to execution
+            self.execute_trades(&predictions, risk.signal_adjustment).await?;
         }
+
         let cycle_latency = cycle_start.elapsed_nanos();
         self.metrics.record_latency("cycle", cycle_latency);
         Ok(())
@@ -249,14 +241,19 @@ impl HFTStealthSystem {
     }
     
     async fn run_inference(&self, _ticks: &[Tick]) -> Result<Vec<f64>, SystemError> {
-        Ok(vec![])
+        // Mock inference producing [phi_t, ev_t]
+        Ok(vec![0.75, 0.0114])
     }
     
     async fn detect_harmonic_trap(&self, _predictions: &[f64], _actual: &[Tick]) -> bool {
         false
     }
     
-    async fn execute_trades(&self, _signals: &[f64]) -> Result<(), SystemError> {
+    async fn execute_trades(&self, _signals: &[f64], qty: f64) -> Result<(), SystemError> {
+        if qty > 0.0 {
+            // Plan optimal routing across venues
+            let _routing = self.stealth_executor.plan_routing(qty);
+        }
         Ok(())
     }
     
