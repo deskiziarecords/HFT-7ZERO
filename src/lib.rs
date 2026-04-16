@@ -252,7 +252,7 @@ impl HFTStealthSystem {
     async fn execute_trades(&self, _signals: &[f64], qty: f64) -> Result<(), SystemError> {
         if qty > 0.0 {
             // Plan optimal routing across venues
-            let _routing = self.stealth_executor.plan_routing(qty);
+            if let Some(routing) = self.stealth_executor.plan_routing(qty) { tracing::debug!("Optimal routing planned: {:?}", routing.weights); }
         }
         Ok(())
     }
