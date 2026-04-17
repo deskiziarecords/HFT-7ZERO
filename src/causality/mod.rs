@@ -77,7 +77,7 @@ pub enum CausalDirection {
 }
 
 /// Global causality cache
-pub static CAUSALITY_CACHE: once_cell::sync::Lazy<Arc<CausalityCache>> = 
+pub static CAUSALITY_CACHE: once_cell::sync::Lazy<Arc<CausalityCache>> =
     once_cell::sync::Lazy::new(|| Arc::new(CausalityCache::new()));
 
 /// Causality result cache
@@ -93,11 +93,11 @@ impl CausalityCache {
             max_size: 10000,
         }
     }
-    
+
     pub fn get(&self, key: u64) -> Option<CausalityResult> {
         self.cache.get(&key).map(|r| r.clone())
     }
-    
+
     pub fn insert(&self, key: u64, result: CausalityResult) {
         if self.cache.len() >= self.max_size {
             // Remove oldest entry (simplified - would need LRU)
@@ -107,25 +107,25 @@ impl CausalityCache {
         }
         self.cache.insert(key, result);
     }
-    
+
     pub fn clear(&self) {
         self.cache.clear();
     }
-    
+
     fn hash_key(x: &[f64], y: &[f64], max_lag: usize) -> u64 {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
-        
+
         let mut hasher = DefaultHasher::new();
         x.len().hash(&mut hasher);
         y.len().hash(&mut hasher);
         max_lag.hash(&mut hasher);
-        
+
         // First few values for uniqueness
         if x.len() > 0 { x[0].to_bits().hash(&mut hasher); }
         if y.len() > 0 { y[0].to_bits().hash(&mut hasher); }
         if x.len() > 1 { x[x.len()/2].to_bits().hash(&mut hasher); }
-        
+
         hasher.finish()
     }
 }

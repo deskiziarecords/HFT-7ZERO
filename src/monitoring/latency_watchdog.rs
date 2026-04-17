@@ -75,16 +75,16 @@ impl LatencyWatchdog {
             remediation_triggered: AtomicBool::new(false),
         }
     }
-    
+
     /// Record latency measurement
     pub fn record_latency(&self, operation: &str, latency_ns: u64) {
         let now = crate::utils::time::get_hardware_timestamp();
-        
+
         // Store in history
         {
             let mut history = self.latency_history.write();
             history.push_back((operation.to_string(), latency_ns, now));
-            
+
             // Clean old entries
             let cutoff = now - self.config.window_size_secs * 1_000_000_000;
             while let Some(entry) = history.front() {
@@ -95,13 +95,13 @@ impl LatencyWatchdog {
                 }
             }
         }
-        
+
         // Check for breach
         if latency_ns > self.config.latency_threshold_ns {
             self.record_breach(operation, latency_ns);
         }
     }
-    
+
     /// Record a latency breach
     fn record_breach(&self, operation: &str, latency_ns: u64) {
         let severity = if latency_ns > self.config.latency_threshold_ns * 2 {
@@ -111,7 +111,7 @@ impl LatencyWatchdog {
         } else {
             BreachSeverity::Warning
         };
-        
+
         let breach = LatencyBreach {
             operation: operation.to_string(),
             latency_ns,
@@ -119,64 +119,64 @@ impl LatencyWatchdog {
             timestamp_ns: crate::utils::time::get_hardware_timestamp(),
             severity,
         };
-        
+
         {
             let mut breaches = self.breach_count.write();
             breaches.push_back(breach.clone());
-            
+
             // Keep last 1000 breaches
             while breaches.len() > 1000 {
                 breaches.pop_front();
             }
         }
-        
+
         tracing::warn!(
             "Latency breach: {} = {}ns (threshold: {}ns, severity: {:?})",
             operation, latency_ns, self.config.latency_threshold_ns, severity
         );
-        
+
         // Check if we need to trigger remediation
         self.check_breach_threshold();
     }
-    
+
     /// Check if breach threshold exceeded
     fn check_breach_threshold(&self) {
         let now = crate::utils::time::get_hardware_timestamp();
         let window_start = now - self.config.window_size_secs * 1_000_000_000;
-        
+
         let recent_breaches: Vec<&LatencyBreach> = self.breach_count.read()
             .iter()
             .filter(|b| b.timestamp_ns >= window_start)
             .collect();
-        
+
         if recent_breaches.len() >= self.config.breach_threshold as usize {
             self.is_healthy.store(false, Ordering::Release);
-            
+
             if self.config.enable_auto_remediation && !self.remediation_triggered.load(Ordering::Acquire) {
                 self.trigger_remediation();
             }
         }
     }
-    
+
     /// Trigger automatic remediation
     fn trigger_remediation(&self) {
         self.remediation_triggered.store(true, Ordering::Release);
-        
+
         tracing::error!("Auto-remediation triggered due to latency breaches");
-        
+
         // Remediation actions:
         // 1. Reduce batch sizes
         // 2. Flush caches
         // 3. Reset connections
         // 4. Throttle trading
-        
+
         // Simulate remediation
         std::thread::spawn(|| {
             std::thread::sleep(Duration::from_millis(100));
             // Remediation complete
         });
     }
-    
+
     /// Get P99 latency for operation
     pub fn p99_latency(&self, operation: &str) -> u64 {
         let history = self.latency_history.read();
@@ -184,16 +184,16 @@ impl LatencyWatchdog {
             .filter(|(op, _, _)| op == operation)
             .map(|(_, lat, _)| *lat)
             .collect();
-        
+
         if latencies.is_empty() {
             return 0;
         }
-        
+
         latencies.sort();
         let idx = (latencies.len() as f64 * 0.99) as usize;
         latencies[idx.min(latencies.len() - 1)]
     }
-    
+
     /// Get recent breaches
     pub fn recent_breaches(&self, count: usize) -> Vec<LatencyBreach> {
         self.breach_count.read()
@@ -203,12 +203,12 @@ impl LatencyWatchdog {
             .cloned()
             .collect()
     }
-    
+
     /// Check if system is healthy
     pub fn is_healthy(&self) -> bool {
         self.is_healthy.load(Ordering::Acquire)
     }
-    
+
     /// Reset watchdog
     pub fn reset(&self) {
         self.latency_history.write().clear();
@@ -217,18 +217,18 @@ impl LatencyWatchdog {
         self.remediation_triggered.store(false, Ordering::Release);
         self.last_check.store(crate::utils::time::get_hardware_timestamp(), Ordering::Release);
     }
-    
+
     /// Get watchdog statistics
     pub fn stats(&self) -> WatchdogStats {
         let history = self.latency_history.read();
         let breaches = self.breach_count.read();
-        
+
         let avg_latency: u64 = if !history.is_empty() {
             history.iter().map(|(_, lat, _)| lat).sum::<u64>() / history.len() as u64
         } else {
             0
         };
-        
+
         WatchdogStats {
             total_samples: history.len(),
             total_breaches: breaches.len(),
@@ -273,14 +273,14 @@ impl SlidingWindow {
             window_ns,
         }
     }
-    
+
     fn add(&mut self, latency_ns: u64, timestamp_ns: u64) {
         self.latencies.push_back(latency_ns);
         self.timestamps.push_back(timestamp_ns);
-        
+
         self.cleanup(timestamp_ns);
     }
-    
+
     fn cleanup(&mut self, now_ns: u64) {
         let cutoff = now_ns - self.window_ns;
         while let Some(&ts) = self.timestamps.front() {
@@ -292,7 +292,7 @@ impl SlidingWindow {
             }
         }
     }
-    
+
     fn p99(&self) -> u64 {
         let mut sorted: Vec<u64> = self.latencies.iter().copied().collect();
         if sorted.is_empty() {
@@ -309,17 +309,17 @@ impl LatencyMonitor {
         let windows = operations.into_iter()
             .map(|op| SlidingWindow::new(op, config.window_size_secs * 1_000_000_000))
             .collect();
-        
+
         Self { windows, config }
     }
-    
+
     pub fn record(&mut self, operation: &str, latency_ns: u64) {
         let now = crate::utils::time::get_hardware_timestamp();
-        
+
         for window in &mut self.windows {
             if window.operation == operation {
                 window.add(latency_ns, now);
-                
+
                 if latency_ns > self.config.latency_threshold_ns {
                     tracing::warn!("High latency in {}: {}ns", operation, latency_ns);
                 }
@@ -327,7 +327,7 @@ impl LatencyMonitor {
             }
         }
     }
-    
+
     pub fn get_p99(&self, operation: &str) -> u64 {
         self.windows.iter()
             .find(|w| w.operation == operation)
@@ -339,7 +339,7 @@ impl LatencyMonitor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_latency_watchdog() {
         let config = WatchdogConfig {
@@ -348,24 +348,24 @@ mod tests {
             breach_threshold: 3,
             ..Default::default()
         };
-        
+
         let watchdog = LatencyWatchdog::new(config);
-        
+
         // Record normal latencies
         for _ in 0..10 {
             watchdog.record_latency("pipeline", 500_000);
         }
-        
+
         assert!(watchdog.is_healthy());
-        
+
         // Record breaches
         for _ in 0..5 {
             watchdog.record_latency("pipeline", 2_000_000);
         }
-        
+
         // Should be unhealthy now
         assert!(!watchdog.is_healthy());
-        
+
         let stats = watchdog.stats();
         assert!(stats.total_breaches >= 5);
         assert!(stats.p99_latency_ns > 1_000_000);

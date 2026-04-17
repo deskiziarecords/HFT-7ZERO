@@ -65,7 +65,7 @@ impl Alert {
             resolved: false,
         }
     }
-    
+
     /// Create latency breach alert
     pub fn latency_breach(operation: &str, latency_ns: u64, threshold_ns: u64) -> Self {
         let severity = if latency_ns > threshold_ns * 2 {
@@ -73,14 +73,14 @@ impl Alert {
         } else {
             AlertSeverity::Error
         };
-        
+
         Self::new(
             &format!("Latency breach: {}", operation),
             &format!("{} latency = {}ns (threshold: {}ns)", operation, latency_ns, threshold_ns),
             severity,
         )
     }
-    
+
     /// Create detection risk alert
     pub fn detection_risk(event: DetectionEvent) -> Self {
         let severity = match event.risk_level {
@@ -90,7 +90,7 @@ impl Alert {
             DetectionRiskLevel::Critical => AlertSeverity::Emergency,
             _ => AlertSeverity::Info,
         };
-        
+
         let mut alert = Self::new(
             &format!("Detection risk: {:?}", event.event_type),
             &format!("Risk score: {:.4}, Level: {:?}", event.risk_score, event.risk_level),
@@ -100,7 +100,7 @@ impl Alert {
         alert.metadata.insert("event_type".to_string(), format!("{:?}", event.event_type));
         alert
     }
-    
+
     /// Create system health alert
     pub fn system_health(component: &str, status: &str) -> Self {
         Self::new(
@@ -159,24 +159,24 @@ impl AlertManager {
             max_alerts: 1000,
         }
     }
-    
+
     /// Start alert manager
     pub fn start(self: Arc<Self>) {
         tokio::spawn(async move {
             let mut rx = self.rx;
-            
+
             while let Some(alert) = rx.recv().await {
                 self.process_alert(alert).await;
             }
         });
     }
-    
+
     /// Process alert
     async fn process_alert(&self, alert: Alert) {
         // Check cooldown
         let key = format!("{}:{}", alert.source, alert.title);
         let now = crate::utils::time::get_hardware_timestamp();
-        
+
         {
             let mut last_times = self.last_alert_time.write();
             if let Some(&last) = last_times.get(&key) {
@@ -186,7 +186,7 @@ impl AlertManager {
             }
             last_times.insert(key, now);
         }
-        
+
         // Store alert
         {
             let mut alerts = self.alerts.write();
@@ -195,7 +195,7 @@ impl AlertManager {
                 alerts.pop_front();
             }
         }
-        
+
         // Store in history
         {
             let mut history = self.alert_history.write();
@@ -204,10 +204,10 @@ impl AlertManager {
                 history.pop_front();
             }
         }
-        
+
         // Route to appropriate channels
         self.route_alert(&alert).await;
-        
+
         // Log alert
         match alert.severity {
             AlertSeverity::Emergency => tracing::error!("[EMERGENCY] {}: {}", alert.title, alert.message),
@@ -217,58 +217,58 @@ impl AlertManager {
             AlertSeverity::Info => tracing::info!("[INFO] {}: {}", alert.title, alert.message),
         }
     }
-    
+
     /// Route alert to appropriate channels
     async fn route_alert(&self, alert: &Alert) {
         // Always log
         self.send_to_log(alert);
-        
+
         // Console for critical+
         if alert.severity >= AlertSeverity::Critical {
             self.send_to_console(alert);
         }
-        
+
         // Email for error+
         if self.config.enable_email && alert.severity >= AlertSeverity::Error {
             self.send_to_email(alert).await;
         }
-        
+
         // Slack for warning+
         if self.config.enable_slack && alert.severity >= AlertSeverity::Warning {
             self.send_to_slack(alert).await;
         }
-        
+
         // PagerDuty for critical+
         if self.config.enable_pagerduty && alert.severity >= AlertSeverity::Critical {
             self.send_to_pagerduty(alert).await;
         }
     }
-    
+
     /// Send to log
     fn send_to_log(&self, alert: &Alert) {
         // Already handled by tracing
     }
-    
+
     /// Send to console
     fn send_to_console(&self, alert: &Alert) {
-        eprintln!("\n🔴 ALERT [{}]: {}\n   {}\n", 
+        eprintln!("\n🔴 ALERT [{}]: {}\n   {}\n",
                   format!("{:?}", alert.severity).to_uppercase(),
-                  alert.title, 
+                  alert.title,
                   alert.message);
     }
-    
+
     /// Send to email (simplified)
     async fn send_to_email(&self, alert: &Alert) {
         // In production, integrate with SMTP
         tracing::debug!("Sending email alert: {}", alert.title);
     }
-    
+
     /// Send to Slack
     async fn send_to_slack(&self, alert: &Alert) {
         if self.config.slack_webhook_url.is_empty() {
             return;
         }
-        
+
         let color = match alert.severity {
             AlertSeverity::Emergency => "danger",
             AlertSeverity::Critical => "danger",
@@ -276,7 +276,7 @@ impl AlertManager {
             AlertSeverity::Warning => "warning",
             AlertSeverity::Info => "good",
         };
-        
+
         let payload = serde_json::json!({
             "attachments": [{
                 "color": color,
@@ -289,17 +289,17 @@ impl AlertManager {
                 "ts": alert.timestamp_ns / 1_000_000_000
             }]
         });
-        
+
         // In production, send HTTP request
         tracing::debug!("Sending Slack alert: {}", alert.title);
     }
-    
+
     /// Send to PagerDuty
     async fn send_to_pagerduty(&self, alert: &Alert) {
         if self.config.pagerduty_integration_key.is_empty() {
             return;
         }
-        
+
         let severity = match alert.severity {
             AlertSeverity::Emergency => "critical",
             AlertSeverity::Critical => "critical",
@@ -307,11 +307,11 @@ impl AlertManager {
             AlertSeverity::Warning => "warning",
             AlertSeverity::Info => "info",
         };
-        
+
         // In production, send PagerDuty event
         tracing::debug!("Sending PagerDuty alert: {}", alert.title);
     }
-    
+
     /// Get active alerts
     pub fn get_active_alerts(&self) -> Vec<Alert> {
         self.alerts.read()
@@ -320,7 +320,7 @@ impl AlertManager {
             .cloned()
             .collect()
     }
-    
+
     /// Get alert history
     pub fn get_history(&self, count: usize) -> Vec<Alert> {
         self.alert_history.read()
@@ -330,7 +330,7 @@ impl AlertManager {
             .cloned()
             .collect()
     }
-    
+
     /// Acknowledge alert
     pub fn acknowledge(&self, alert_id: u64) -> bool {
         let mut alerts = self.alerts.write();
@@ -341,7 +341,7 @@ impl AlertManager {
             false
         }
     }
-    
+
     /// Resolve alert
     pub fn resolve(&self, alert_id: u64) -> bool {
         let mut alerts = self.alerts.write();
@@ -352,7 +352,7 @@ impl AlertManager {
             false
         }
     }
-    
+
     /// Clear resolved alerts
     pub fn clear_resolved(&self) {
         let mut alerts = self.alerts.write();
@@ -402,17 +402,17 @@ impl EscalationManager {
                 actions: vec![EscalationAction::CallOnCall, EscalationAction::EmergencyShutdown],
             },
         ];
-        
+
         Self {
             levels,
             current_level: 0,
             last_escalation: Instant::now(),
         }
     }
-    
+
     pub fn check_escalation(&mut self, highest_severity: AlertSeverity) -> Vec<EscalationAction> {
         let mut actions = Vec::new();
-        
+
         for (i, level) in self.levels.iter().enumerate() {
             if highest_severity >= level.severity_threshold && i >= self.current_level {
                 if self.last_escalation.elapsed() >= Duration::from_secs(level.delay_seconds) {
@@ -423,10 +423,10 @@ impl EscalationManager {
                 break;
             }
         }
-        
+
         actions
     }
-    
+
     pub fn reset(&mut self) {
         self.current_level = 0;
         self.last_escalation = Instant::now();
@@ -436,18 +436,18 @@ impl EscalationManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_alert_creation() {
         let alert = Alert::latency_breach("pipeline", 2_000_000, 1_000_000);
         assert_eq!(alert.severity, AlertSeverity::Critical);
         assert!(alert.title.contains("Latency breach"));
     }
-    
+
     #[test]
     fn test_escalation() {
         let mut escalation = EscalationManager::new();
-        
+
         let actions = escalation.check_escalation(AlertSeverity::Critical);
         assert!(!actions.is_empty());
     }

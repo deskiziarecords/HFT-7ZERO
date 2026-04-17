@@ -86,11 +86,11 @@ impl BankruptcyCallback for LoggingCallback {
     fn on_trigger(&self, drawdown: f64, loss: f64) {
         tracing::error!("BANKRUPTCY TRIGGERED: drawdown={:.2}%, loss=${:.2}", drawdown * 100.0, loss);
     }
-    
+
     fn on_recovery(&self, phase: RecoveryPhase) {
         tracing::info!("Bankruptcy recovery phase: {:?}", phase);
     }
-    
+
     fn on_liquidation(&self, amount: f64) {
         tracing::warn!("Liquidating position: ${:.2}", amount);
     }
@@ -110,58 +110,58 @@ impl BankruptcyGate {
             recovery_plan: parking_lot::RwLock::new(None),
             callbacks: parking_lot::RwLock::new(Vec::new()),
         };
-        
+
         // Add default logging callback
         gate.add_callback(Box::new(LoggingCallback));
-        
+
         gate
     }
-    
+
     /// Check if bankruptcy should trigger
     pub fn check(&self, gamma: f64, hazard: f64, volatility: f64) -> bool {
         let current_status = self.get_status();
-        
+
         if current_status != BreakerStatus::Closed {
             return true;
         }
-        
+
         // θ_t = 1 if conditions met
         let should_trigger = gamma.abs() > 5.0 || hazard > 0.8 || volatility > 0.2;
-        
+
         if should_trigger {
             self.trigger();
         }
-        
+
         should_trigger
     }
-    
+
     /// Trigger bankruptcy gate
     pub fn trigger(&self) {
         let current_status = self.get_status();
         if current_status != BreakerStatus::Closed {
             return;
         }
-        
+
         let trigger_ns = crate::utils::time::get_hardware_timestamp();
         self.trigger_time.store(trigger_ns, Ordering::Release);
         self.status.store(BreakerStatus::Tripped as u64, Ordering::Release);
-        
+
         let drawdown = self.drawdown_peak.load(Ordering::Acquire) as f64 / 1e6;
         let loss = self.loss_total.load(Ordering::Acquire) as f64 / 1e6;
-        
+
         // Execute callbacks
         for callback in self.callbacks.read().iter() {
             callback.on_trigger(drawdown, loss);
         }
-        
+
         // Create recovery plan if auto-recovery enabled
         if self.auto_recovery {
             self.create_recovery_plan();
         }
-        
+
         tracing::error!("Bankruptcy gate triggered at t={}", trigger_ns);
     }
-    
+
     /// Create recovery plan
     fn create_recovery_plan(&self) {
         let plan = RecoveryPlan {
@@ -202,14 +202,14 @@ impl BankruptcyGate {
                 },
             ],
         };
-        
+
         *self.recovery_plan.write() = Some(plan);
-        
+
         for callback in self.callbacks.read().iter() {
             callback.on_recovery(RecoveryPhase::Immediate);
         }
     }
-    
+
     /// Execute recovery
     pub fn execute_recovery(&self) -> bool {
         let mut plan_opt = self.recovery_plan.write();
@@ -217,17 +217,17 @@ impl BankruptcyGate {
             Some(p) => p,
             None => return false,
         };
-        
+
         let now = crate::utils::time::get_hardware_timestamp();
         let elapsed = now - plan.start_time_ns;
-        
+
         if elapsed >= plan.duration_ns {
             // Recovery complete
             self.status.store(BreakerStatus::Closed as u64, Ordering::Release);
             plan.phase = RecoveryPhase::Complete;
             return true;
         }
-        
+
         // Execute steps based on phase
         match plan.phase {
             RecoveryPhase::Immediate => {
@@ -250,10 +250,10 @@ impl BankruptcyGate {
                 return true;
             }
         }
-        
+
         false
     }
-    
+
     fn execute_immediate_recovery(&self, plan: &mut RecoveryPlan) {
         for step in &plan.steps {
             if step.delay_ms == 0 {
@@ -261,11 +261,11 @@ impl BankruptcyGate {
             }
         }
     }
-    
+
     fn execute_gradual_recovery(&self, plan: &mut RecoveryPlan) {
         let now = crate::utils::time::get_hardware_timestamp();
         let elapsed = now - plan.start_time_ns;
-        
+
         for step in &plan.steps {
             let step_time_ns = step.delay_ms * 1_000_000;
             if step_time_ns <= elapsed && step.delay_ms > 0 {
@@ -273,7 +273,7 @@ impl BankruptcyGate {
             }
         }
     }
-    
+
     fn monitor_recovery(&self, plan: &mut RecoveryPlan) {
         // Check if system is stable
         let is_stable = self.check_stability();
@@ -283,7 +283,7 @@ impl BankruptcyGate {
             }
         }
     }
-    
+
     fn execute_recovery_step(&self, step: &RecoveryStep) {
         match &step.action {
             RecoveryAction::LiquidatePosition(amount) => {
@@ -309,18 +309,18 @@ impl BankruptcyGate {
             }
         }
     }
-    
+
     fn check_stability(&self) -> bool {
         // Check if market conditions have stabilized
         let drawdown = self.drawdown_peak.load(Ordering::Acquire) as f64 / 1e6;
         drawdown < self.max_drawdown * 0.5
     }
-    
+
     /// Add callback
     pub fn add_callback(&self, callback: Box<dyn BankruptcyCallback + Send + Sync>) {
         self.callbacks.write().push(callback);
     }
-    
+
     /// Get current status
     pub fn get_status(&self) -> BreakerStatus {
         match self.status.load(Ordering::Acquire) {
@@ -331,7 +331,7 @@ impl BankruptcyGate {
             _ => BreakerStatus::Closed,
         }
     }
-    
+
     /// Reset gate (manual)
     pub fn reset(&self) {
         self.status.store(BreakerStatus::Closed as u64, Ordering::Release);
@@ -339,15 +339,15 @@ impl BankruptcyGate {
         self.loss_total.store(0, Ordering::Release);
         self.trigger_time.store(0, Ordering::Release);
         *self.recovery_plan.write() = None;
-        
+
         tracing::info!("Bankruptcy gate manually reset");
     }
-    
+
     /// Update drawdown tracking
     pub fn update_drawdown(&self, current_pnl: f64) {
         let current = (current_pnl * 1e6) as u64;
         let mut peak = self.drawdown_peak.load(Ordering::Acquire);
-        
+
         while current > peak {
             match self.drawdown_peak.compare_exchange(peak, current, Ordering::Release, Ordering::Relaxed) {
                 Ok(_) => break,
@@ -355,24 +355,24 @@ impl BankruptcyGate {
             }
         }
     }
-    
+
     /// Update loss tracking
     pub fn update_loss(&self, loss: f64) {
         self.loss_total.fetch_add((loss.abs() * 1e6) as u64, Ordering::Relaxed);
     }
-    
+
     /// Check if gate is open for trading
     pub fn is_open(&self) -> bool {
         self.get_status() == BreakerStatus::Closed
     }
-    
+
     /// Get time since last trigger
     pub fn time_since_trigger(&self) -> Option<Duration> {
         let trigger = self.trigger_time.load(Ordering::Acquire);
         if trigger == 0 {
             return None;
         }
-        
+
         let now = crate::utils::time::get_hardware_timestamp();
         Some(Duration::from_nanos(now - trigger))
     }
@@ -426,14 +426,14 @@ impl CircuitBreaker {
                 cooldown_seconds: 3600,
             },
         ];
-        
+
         Self {
             levels,
             current_level: 0,
             gate,
         }
     }
-    
+
     pub fn check_and_act(&mut self, drawdown: f64) -> BreakerAction {
         for (i, level) in self.levels.iter().enumerate().rev() {
             if drawdown >= level.threshold && i >= self.current_level {
@@ -442,10 +442,10 @@ impl CircuitBreaker {
                 return level.action.clone();
             }
         }
-        
+
         BreakerAction::Warning
     }
-    
+
     fn execute_action(&self, action: &BreakerAction) {
         match action {
             BreakerAction::Warning => {
@@ -463,7 +463,7 @@ impl CircuitBreaker {
             }
         }
     }
-    
+
     pub fn reset(&mut self) {
         self.current_level = 0;
     }
@@ -472,28 +472,28 @@ impl CircuitBreaker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_bankruptcy_gate() {
         let gate = BankruptcyGate::new(0.05, 10000.0, true);
-        
+
         assert!(gate.is_open());
-        
+
         let triggered = gate.check(6.0, 0.5, 0.15);
         assert!(triggered);
-        
+
         assert!(!gate.is_open());
         assert_eq!(gate.get_status(), BreakerStatus::Tripped);
     }
-    
+
     #[test]
     fn test_circuit_breaker() {
         let gate = Arc::new(BankruptcyGate::new(0.05, 10000.0, true));
         let mut breaker = CircuitBreaker::new(gate);
-        
+
         let action = breaker.check_and_act(0.03);
         matches!(action, BreakerAction::Warning);
-        
+
         let action = breaker.check_and_act(0.08);
         matches!(action, BreakerAction::ReducePosition(_));
     }

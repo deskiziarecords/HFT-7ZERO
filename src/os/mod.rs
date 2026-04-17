@@ -34,25 +34,25 @@ pub struct OSConfig {
     // L1: Regime bounds
     pub regime_bounds: Vec<f64>,  // ℬ₂₀, ℬ₄₀, ℬ₆₀ bounds
     pub regime_threshold: f64,
-    
+
     // L2: Hazard parameters
     pub hazard_alpha: [f64; 3],
     pub hazard_decay: f64,
-    
+
     // L3: Macro injection
     pub macro_shock_alpha: f64,
     pub macro_event_window_ns: u64,
-    
+
     // L4: Liquidity field
     pub liquidity_viscosity: f64,
     pub liquidity_diffusion: f64,
     pub field_resolution: usize,
-    
+
     // L5: Gamma control
     pub gamma_eta: f64,
     pub gamma_kappa: f64,
     pub gamma_target: f64,
-    
+
     // L6: Bankruptcy
     pub max_drawdown: f64,
     pub max_loss: f64,

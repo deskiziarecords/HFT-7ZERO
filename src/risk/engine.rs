@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn test_risk_engine() {
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
-        let mut engine = RiskEngine::new(RiskConfig::default(), tx);
+        let _engine = RiskEngine::new(RiskConfig::default(), tx);
         
         // Test would require order book and positions
     }

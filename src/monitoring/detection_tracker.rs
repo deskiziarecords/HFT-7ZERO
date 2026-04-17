@@ -71,13 +71,13 @@ pub struct DetectionTracker {
     risk_score: AtomicF64,
     last_update: AtomicU64,
     max_history: usize,
-    
+
     // Risk factors
     pattern_regularity: AtomicF64,
     volume_concentration: AtomicF64,
     timing_variance: AtomicF64,
     venue_alerts: AtomicU64,
-    
+
     // Adaptive parameters
     stealth_multiplier: AtomicF64,
 }
@@ -97,33 +97,33 @@ impl DetectionTracker {
             stealth_multiplier: AtomicF64::new(1.0),
         }
     }
-    
+
     /// Record detection event
     pub fn record_event(&self, event: DetectionEvent) {
         let risk_level = DetectionRiskLevel::from_score(event.risk_score);
         let mut event = event;
         event.risk_level = risk_level;
-        
+
         {
             let mut events = self.events.write();
             events.push_back(event.clone());
-            
+
             while events.len() > self.max_history {
                 events.pop_front();
             }
         }
-        
+
         // Update running risk score (exponential moving average)
         let current_risk = self.risk_score.load(Ordering::Relaxed);
         let new_risk = current_risk * 0.9 + event.risk_score * 0.1;
         self.risk_score.store(new_risk, Ordering::Relaxed);
-        
+
         // Update stealth multiplier inversely proportional to risk
         let stealth = (1.0 - new_risk).max(0.5).min(1.0);
         self.stealth_multiplier.store(stealth, Ordering::Relaxed);
-        
+
         self.last_update.store(event.timestamp_ns, Ordering::Relaxed);
-        
+
         // Log significant events
         if risk_level >= DetectionRiskLevel::Medium {
             tracing::warn!(
@@ -132,11 +132,11 @@ impl DetectionTracker {
             );
         }
     }
-    
+
     /// Update pattern regularity (0 = random, 1 = perfectly regular)
     pub fn update_pattern_regularity(&self, regularity: f64) {
         self.pattern_regularity.store(regularity, Ordering::Relaxed);
-        
+
         if regularity > 0.7 {
             let event = DetectionEvent {
                 event_type: DetectionEventType::PatternDetected,
@@ -148,11 +148,11 @@ impl DetectionTracker {
             self.record_event(event);
         }
     }
-    
+
     /// Update volume concentration (0 = dispersed, 1 = highly concentrated)
     pub fn update_volume_concentration(&self, concentration: f64) {
         self.volume_concentration.store(concentration, Ordering::Relaxed);
-        
+
         if concentration > 0.5 {
             let event = DetectionEvent {
                 event_type: DetectionEventType::VolumeAnomaly,
@@ -164,11 +164,11 @@ impl DetectionTracker {
             self.record_event(event);
         }
     }
-    
+
     /// Update timing variance (higher = more random, lower = more regular)
     pub fn update_timing_variance(&self, variance: f64) {
         self.timing_variance.store(variance, Ordering::Relaxed);
-        
+
         // Low variance means regular timing (suspicious)
         if variance < 0.1 {
             let risk = (0.1 - variance) * 5.0;
@@ -182,14 +182,14 @@ impl DetectionTracker {
             self.record_event(event);
         }
     }
-    
+
     /// Record venue alert
     pub fn record_venue_alert(&self, venue: &str, reason: &str) {
         self.venue_alerts.fetch_add(1, Ordering::Relaxed);
-        
+
         let alert_count = self.venue_alerts.load(Ordering::Relaxed);
         let risk = (alert_count as f64 * 0.05).min(0.9);
-        
+
         let event = DetectionEvent {
             event_type: DetectionEventType::VenueFlag,
             risk_score: risk,
@@ -199,22 +199,22 @@ impl DetectionTracker {
         };
         self.record_event(event);
     }
-    
+
     /// Get current detection probability ℙ(detect | strategy)
     pub fn detection_probability(&self) -> f64 {
         self.risk_score.load(Ordering::Relaxed)
     }
-    
+
     /// Get current risk level
     pub fn current_risk_level(&self) -> DetectionRiskLevel {
         DetectionRiskLevel::from_score(self.detection_probability())
     }
-    
+
     /// Get stealth multiplier (reduce aggression when risk is high)
     pub fn stealth_multiplier(&self) -> f64 {
         self.stealth_multiplier.load(Ordering::Relaxed)
     }
-    
+
     /// Get recent events
     pub fn recent_events(&self, count: usize) -> Vec<DetectionEvent> {
         self.events.read()
@@ -224,7 +224,7 @@ impl DetectionTracker {
             .cloned()
             .collect()
     }
-    
+
     /// Get statistics
     pub fn get_stats(&self) -> DetectionStats {
         let events = self.events.read();
@@ -234,7 +234,7 @@ impl DetectionTracker {
         let critical = events.iter()
             .filter(|e| e.risk_level >= DetectionRiskLevel::Critical)
             .count();
-        
+
         DetectionStats {
             total_events: events.len() as u64,
             high_risk_events: high_risk as u64,
@@ -244,17 +244,17 @@ impl DetectionTracker {
             avg_risk_score: self.risk_score.load(Ordering::Relaxed),
         }
     }
-    
+
     /// Check if trading should be paused due to detection risk
     pub fn should_pause(&self) -> bool {
         self.current_risk_level() >= DetectionRiskLevel::High
     }
-    
+
     /// Check if emergency shutdown needed
     pub fn emergency_needed(&self) -> bool {
         self.current_risk_level() >= DetectionRiskLevel::Critical
     }
-    
+
     /// Reset tracker
     pub fn reset(&self) {
         self.events.write().clear();
@@ -289,42 +289,42 @@ impl RiskFactorAnalyzer {
             window_size,
         }
     }
-    
+
     pub fn update(&mut self, factors: RiskFactors) {
         self.history.push_back(factors);
         while self.history.len() > self.window_size {
             self.history.pop_front();
         }
     }
-    
+
     pub fn trend(&self) -> f64 {
         if self.history.len() < 10 {
             return 0.0;
         }
-        
+
         let recent: Vec<&RiskFactors> = self.history.iter().rev().take(10).collect();
         let older: Vec<&RiskFactors> = self.history.iter().take(10).collect();
-        
+
         let recent_risk: f64 = recent.iter()
             .map(|f| f.pattern_regularity + f.volume_concentration + (1.0 - f.timing_variance))
             .sum::<f64>() / recent.len() as f64;
-        
+
         let older_risk: f64 = older.iter()
             .map(|f| f.pattern_regularity + f.volume_concentration + (1.0 - f.timing_variance))
             .sum::<f64>() / older.len() as f64;
-        
+
         (recent_risk - older_risk) / older_risk.max(0.01)
     }
-    
+
     pub fn volatility(&self) -> f64 {
         if self.history.len() < 2 {
             return 0.0;
         }
-        
+
         let risks: Vec<f64> = self.history.iter()
             .map(|f| f.pattern_regularity + f.volume_concentration + (1.0 - f.timing_variance))
             .collect();
-        
+
         let mean = risks.iter().sum::<f64>() / risks.len() as f64;
         let variance = risks.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / risks.len() as f64;
         variance.sqrt()
@@ -334,23 +334,23 @@ impl RiskFactorAnalyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_detection_tracker() {
         let tracker = DetectionTracker::new();
-        
+
         // Record some events
         tracker.update_pattern_regularity(0.8);
         tracker.update_volume_concentration(0.6);
         tracker.update_timing_variance(0.05);
-        
+
         let stats = tracker.get_stats();
         println!("Detection stats: {:?}", stats);
-        
+
         assert!(tracker.detection_probability() > 0.0);
         assert!(!tracker.should_pause()); // Risk should still be low
     }
-    
+
     #[test]
     fn test_risk_levels() {
         assert_eq!(DetectionRiskLevel::from_score(0.00005), DetectionRiskLevel::None);

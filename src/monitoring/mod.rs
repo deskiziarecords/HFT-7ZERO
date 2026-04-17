@@ -53,7 +53,7 @@ impl Default for MonitoringConfig {
 }
 
 /// Global monitoring instance
-pub static MONITORING: once_cell::sync::Lazy<Arc<MonitoringSystem>> = 
+pub static MONITORING: once_cell::sync::Lazy<Arc<MonitoringSystem>> =
     once_cell::sync::Lazy::new(|| Arc::new(MonitoringSystem::new()));
 
 /// Main monitoring system
@@ -72,13 +72,13 @@ impl MonitoringSystem {
     /// Create new monitoring system
     pub fn new() -> Self {
         let (alert_tx, alert_rx) = mpsc::unbounded_channel();
-        
+
         let metrics = Arc::new(MetricsCollector::new());
         let latency_watchdog = Arc::new(LatencyWatchdog::new(WatchdogConfig::default()));
         let detection_tracker = Arc::new(DetectionTracker::new());
         let alert_manager = Arc::new(AlertManager::new(alert_rx));
         let health_checker = Arc::new(HealthChecker::new());
-        
+
         Self {
             config: RwLock::new(MonitoringConfig::default()),
             metrics: metrics.clone(),
@@ -90,16 +90,16 @@ impl MonitoringSystem {
             alert_tx,
         }
     }
-    
+
     /// Start monitoring system
     pub async fn start(&self) {
         // Start alert manager
         self.alert_manager.start();
-        
+
         // Start metrics collection loop
         let metrics = self.metrics.clone();
         let interval_ms = self.config.read().metrics_interval_ms;
-        
+
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(tokio::time::Duration::from_millis(interval_ms));
             loop {
@@ -107,7 +107,7 @@ impl MonitoringSystem {
                 metrics.collect().await;
             }
         });
-        
+
         // Start health check loop
         let health_checker = self.health_checker.clone();
         tokio::spawn(async move {
@@ -117,51 +117,51 @@ impl MonitoringSystem {
                 health_checker.run_checks().await;
             }
         });
-        
+
         tracing::info!("Monitoring system started");
     }
-    
+
     /// Record latency metric
     pub fn record_latency(&self, operation: &str, latency_ns: u64) {
         self.metrics.record_latency(operation, latency_ns);
         self.latency_watchdog.record_latency(operation, latency_ns);
-        
+
         // Check threshold
         let threshold = self.config.read().latency_threshold_ns;
         if latency_ns > threshold {
             let _ = self.alert_tx.send(Alert::latency_breach(operation, latency_ns, threshold));
         }
     }
-    
+
     /// Record detection event
     pub fn record_detection(&self, event: DetectionEvent) {
         self.detection_tracker.record_event(event.clone());
-        
+
         if event.risk_level >= DetectionRiskLevel::Medium {
             let _ = self.alert_tx.send(Alert::detection_risk(event));
         }
     }
-    
+
     /// Record system metric
     pub fn record_metric(&self, name: &str, value: f64, metric_type: MetricType) {
         self.metrics.record_metric(name, value, metric_type);
     }
-    
+
     /// Send alert
     pub fn send_alert(&self, alert: Alert) {
         let _ = self.alert_tx.send(alert);
     }
-    
+
     /// Get current metrics snapshot
     pub fn get_metrics(&self) -> SystemMetrics {
         self.metrics.snapshot()
     }
-    
+
     /// Get detection statistics
     pub fn get_detection_stats(&self) -> DetectionStats {
         self.detection_tracker.get_stats()
     }
-    
+
     /// Get health status
     pub fn health_status(&self) -> HealthStatus {
         self.health_checker.overall_status()
