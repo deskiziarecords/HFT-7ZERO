@@ -1,5 +1,6 @@
 # HFT-7ZERO
 HFT stealth systems
+![HFT-7ZERO](https://github.com/deskiziarecords/HFT-7ZERO/blob/main/HFT-7ZERO.jpg)
 
 ``` text
 hft_stealth_system/
